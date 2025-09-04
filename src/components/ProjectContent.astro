@@ -1,0 +1,86 @@
+---
+import { Image } from 'astro:assets';
+// プロジェクトコンテンツコンポーネント
+const { project, classNameWrapper } = Astro.props;
+---
+
+<article class={`${classNameWrapper} bg-black01 text-white01`}>
+    <header>
+      <div class="project-image">
+          <img src={project.hero || "/placeholder.svg"} alt={project.title} />
+      </div>
+      <div class="grid grid-cols-1 gap-y-[2em] mt-[1em] lg:grid-cols-2 lg:items-start lg:mt-[3em]">
+        <div class="grid grid-cols-1 gap-y-[1.4em] lg:gap-y-[3em]">
+          <h3 class="">{project.title}</h3>
+          <ul class="grid grid-cols-1 gap-y-[0.6em]">
+            <li>
+                <p class="text-gray01">Role</p>
+                <p>{project.role}</p>
+            </li>
+            <li>
+                <p class="text-gray01">Date</p>
+                <p>{project.date}</p>
+            </li>
+            <li>
+                <a data-name="link-view-project" class="underline" href={project.url} target="_blank" rel="noopener noreferrer">View Project</a>
+            </li>
+          </ul>
+        </div>
+        <div class="grid grid-cols-1 gap-y-[1em]">
+          <p>{project.description}</p>
+          <p>{project.descriptionEn}</p>
+        </div>
+      </div>
+    </header>
+    <div class="grid grid-cols-2 gap-x-[4px] gap-y-[1em] mt-16 lg:mt-[6em]">
+      { project.moviePc && (
+        <div class="col-span-2 bg-gray01">
+          <video src={project.moviePc} autoplay loop muted playsinline class="w-full h-auto"></video>
+        </div>
+      )}
+      { project.movieMotion01 && (
+        <div class="col-span-1 bg-gray01 aspect-square">
+          <Image src={project.movieMotion01} alt='movion movie' width={400} height={400} class="w-full h-full object-cover"></Image>
+        </div>
+      )}
+      { project.movieMotion02 && (
+        <div class="col-span-1 bg-gray01 aspect-square">
+          <Image src={project.movieMotion02} alt='movion movie' width={400} height={400} class="w-full h-full object-cover"></Image>
+        </div>
+      )}
+      { project.movieMotion03 && (
+        <div class="col-span-1 bg-gray01 aspect-square">
+          <Image src={project.movieMotion03} alt='movion movie' width={400} height={400} class="w-full h-full object-cover"></Image>
+        </div>
+      )}
+      { project.movieMotion04 && (
+        <div class="col-span-1 bg-gray01 aspect-square">
+          <Image src={project.movieMotion04} alt='movion movie' width={400} height={400} class="w-full h-full object-cover"></Image>
+        </div>
+      )}
+      { project.imagePc01 && (
+        <div class="col-span-2 bg-gray01">
+          <Image src={project.imagePc01} alt='pc design' width={800} height={600} class="w-full h-auto"></Image>
+        </div>
+      )}
+      { project.imagePc02 && (
+        <div class="col-span-2 bg-gray01">
+          <Image src={project.imagePc02} alt='pc design' width={800} height={600} class="w-full h-auto"></Image>
+        </div>
+      )}
+      { project.imageSp01 && (
+        <div class="col-span-2 bg-gray01">
+          <Image src={project.imageSp01} alt='sp design' width={600} height={400} class="w-full h-auto"></Image>
+        </div>
+      )}
+      { project.imageSp02 && (
+        <div class="col-span-2 bg-gray01">
+          <Image src={project.imageSp02} alt='sp design' width={600} height={400} class="w-full h-auto"></Image>
+        </div>
+      )}
+    </div>
+    <div class="prev-next flex justify-between items-center h-[140px] lg:mt-more-200">
+      <a href="" class="">{'< prev'}</a>
+      <a href="" class="">{'next >'}</a>
+    </div>
+</article>

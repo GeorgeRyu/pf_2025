@@ -1,0 +1,95 @@
+---
+// プロジェクト詳細ページ
+import Layout from '../../layouts/Layout.astro';
+import ProjectContent from '../../components/ProjectContent.astro';
+import { getProject, getProjects } from '../../lib/projects.js';
+
+// このページのみサーバーサイドレンダリングを有効化
+export const prerender = false;
+
+const { slug } = Astro.params;
+const project = await getProject(slug);
+
+// プロジェクトが見つからない場合は404
+if (!project) {
+  return Astro.redirect('/404');
+}
+---
+
+<!-- 通常ページ表示 -->
+<Layout title={project.title}>
+    <div data-name="project-page" class="w-project-page fixed top-0 left-0 w-auto h-full grid grid-cols-4 gap-x-[8px] items-start ml-s-16-60 bg-black01 text-white01 z-50 lg:grid-cols-5 lg:gap-x-4 lg:pr-s-16-60">
+      <a href="/" data-name="nav-project" class="nav-single fixed bottom-0 left-0 flex justify-center items-center gap-x-3 [writing-mode:vertical-lr] bg-black01 h-[140px] w-more-24 z-50 lg:relative lg:bottom-auto lg:left-auto lg:col-start-1 lg:col-span-1 lg:justify-self-start lg:w-auto lg:h-auto lg:mt-more-96 lg:ml-[2em] lg:[writing-mode:horizontal-tb]">
+        <span class="arrow relative w-[7px] h-[7px] rotate-45">
+          <span class="arrow-line-t absolute top-[3px] left-0 w-full h-[1px] bg-white01"></span>
+          <span class="arrow-line-b absolute top-0 left-[3px] w-[1px] h-full bg-white01"></span>
+        </span>
+        <span data-name="text-close" class="text-nowrap">Close</span>
+      </a>
+      <ProjectContent project={project} classNameWrapper="col-span-4 col-start-1 h-full pt-16 pl-s-16-60 overflow-y-scroll lg:pt-more-96 lg:pb-more-200 lg:col-start-2 lg:col-span-4" />
+    </div>
+
+    <!-- デバッグ情報（開発時のみ） -->
+    <!-- <div id="debug-info" style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 9999; font-size: 12px; max-width: 300px;">
+      Loading...
+    </div> -->
+</Layout>
+
+<script>
+  // クライアントサイドでモーダル判定
+  const url = new URL(window.location.href),
+    isModal = url.searchParams.has('modal'),
+    projectPage = document.querySelector('[data-name="project-page"]');
+  
+  // デバッグ情報を更新
+  const debugInfo = document.getElementById('debug-info');
+  if (debugInfo) {
+    debugInfo.innerHTML = `
+      isModal: ${isModal ? 'true' : 'false'}<br>
+      URL: ${window.location.href}<br>
+      SearchParams: ${url.searchParams.toString()}<br>
+      All params: ${Array.from(url.searchParams.entries()).map(([k,v]) => `${k}=${v}`).join(', ')}
+    `;
+  }
+  
+  if (isModal) { // モーダル表示
+    console.log('Modal view activated');
+    
+    // モーダル表示用のスタイルを適用
+    document.body.classList.add('modal-view');
+    projectPage?.classList.add('mr-0');
+
+  } else { // 通常ページ
+
+    const navProject = document.querySelector('[data-name="nav-project"]'),
+    textClose = document.querySelector('[data-name="text-close"]');
+
+    console.log('Single page');
+    console.log(navProject);
+    console.log(textClose);
+
+
+    if (projectPage) projectPage.classList.add('project-page-single');
+    if (textClose) textClose.innerHTML = 'Back to Home';
+  }
+</script>
+
+<style lang="scss" is:global>
+  /* シングルページ用のスタイル */
+  .project-page-single {
+    position: relative;
+
+    &:after { 
+      content: '';
+      position: absolute;
+      display: block;
+      top: 0;
+      right: 0;
+      width: 100vw;
+      height: 100%;
+      background-color: var(--c-black-01);
+      z-index: -1;
+    }
+  }
+
+</style>

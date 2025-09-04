@@ -1,0 +1,120 @@
+---
+import SoundBtn from './SoundBtn.astro';
+import ColorThemeBtn from './ColorThemeBtn.astro';
+---
+
+<header class="fixed top-0 left-0 grid grid-cols-2 gap-x-[8px] items-start w-full h-auto pt-s-20-60 px-s-16-60 z-50 lg:grid-cols-6 lg:gap-x-4 lg:pt-more-40 lg:pointer-events-none">
+    <div class="grid grid-cols-1 gap-y-5">
+        <h1 class="">RYU<br>TAKAHASHI</h1>
+        <p>WEB DEVELOPER</p>
+    </div>
+
+    <SoundBtn classNameWrapper="lg:hidden" />
+    <ColorThemeBtn classNameWrapper="hidden lg:block lg:col-start-6 lg:place-self-end lg:self-start" />
+</header>
+
+<nav id="sound-setting" class="fixed top-0 left-0 hidden grid-cols-1 gap-y-4 w-full h-auto text-white01 bg-black01 py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-auto lg:left-auto lg:right-s-20-60 lg:bottom-more-20 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-40 lg:pb-more-20">
+    <div id="bg-sound-setting" class="absolute top-0 left-0 w-full h-screen z-10 lg:top-auto lg:left-auto lg:-right-s-20-60 lg:-bottom-more-20 lg:w-screen"></div>
+    <div id="btn-close-sound-setting" class="relative z-20 ml-auto cursor-pointer lg:row-start-2">close</div>
+    <div class="relative z-20 grid grid-cols-4 gap-x-[8px] col-span-3 lg:row-start-1">
+        <div class="grid grid-cols-1 gap-y-4 col-span-3">
+            <div class="w-full h-auto">
+                <p id="name-sound" class="h-10">sound track name</p>
+                <div id="sound-indicator" class="w-full h-[50px] border-white01 border-1 border-solid">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 gap-y-1 w-full h-auto">
+                <div class="grid grid-cols-[46px_auto]">
+                    <div class="">low</div>
+                    <div class="w-full">
+                        <input id="lowFilterControl"  class="w-full cursor-grab active:cursor-grabbing" type="range" min="-10" max="10" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-[46px_auto]">
+                    <div class="">mid</div>
+                    <div class="w-full">
+                        <input id="midFilterControl"  class="w-full cursor-grab active:cursor-grabbing" type="range" min="-10" max="10" step="0.1" value="0">
+                    </div>
+                </div>
+                <div class="grid grid-cols-[46px_auto]">
+                    <div class="">high</div>
+                    <div class="w-full">
+                        <input id="highFilterControl"  class="w-full cursor-grab active:cursor-grabbing" type="range" min="-10" max="10" step="0.1" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 grid-rows-[2fr_1fr] gap-[2px] col-span-1 pt-10 pb-2 ml-6">
+            <div class="w-full col-span-2 bg-white01 flex items-center justify-center">
+                <svg width="5" height="10" viewBox="0 0 5 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4.55756 4.40396C4.82028 4.7579 4.82028 5.24211 4.55756 5.59604L2.30296 8.63333C1.72866 9.40699 0.5 9.00081 0.5 8.03729L0.5 1.96272C0.5 0.999199 1.72866 0.593016 2.30296 1.36668L4.55756 4.40396Z" fill="#1A1A1B"/>
+                </svg>
+            </div>
+            <div class="col-span-1 bg-white01 flex items-center justify-center">
+                <svg width="8" height="10" viewBox="0 0 8 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 8C2 8.55229 1.55228 9 1 9C0.447715 9 -4.82823e-08 8.55229 0 8L5.24537e-07 2C5.72819e-07 1.44772 0.447716 1 1 1C1.55229 1 2 1.44772 2 2L2 8Z" fill="#1A1A1B"/>
+                    <path d="M3.44244 5.59604C3.17972 5.24211 3.17972 4.7579 3.44244 4.40396L5.69705 1.36668C6.27134 0.593017 7.5 0.9992 7.5 1.96272L7.5 8.03729C7.5 9.00081 6.27134 9.40699 5.69704 8.63333L3.44244 5.59604Z" fill="#1A1A1B"/>
+                </svg>                    
+            </div>
+            <div class="col-span-1 bg-white01 flex items-center justify-center">
+                <svg class="rotate-180" width="8" height="10" viewBox="0 0 8 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M2 8C2 8.55229 1.55228 9 1 9C0.447715 9 -4.82823e-08 8.55229 0 8L5.24537e-07 2C5.72819e-07 1.44772 0.447716 1 1 1C1.55229 1 2 1.44772 2 2L2 8Z" fill="#1A1A1B"/>
+                    <path d="M3.44244 5.59604C3.17972 5.24211 3.17972 4.7579 3.44244 4.40396L5.69705 1.36668C6.27134 0.593017 7.5 0.9992 7.5 1.96272L7.5 8.03729C7.5 9.00081 6.27134 9.40699 5.69704 8.63333L3.44244 5.59604Z" fill="#1A1A1B"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<nav id="menu" data-name="menu" class="menu fixed left-0 bottom-0 w-full grid-cols-2 gap-x-[8px] pb-s-20-60 pt-16 px-s-16-60 bg-black01 text-white01 z-[999] hidden">
+    <div data-name="bg-menu" class="absolute bottom-0 left-0 w-full h-screen z-10"></div>
+    <div class="relative grid grid-cols-1 gap-y-20 z-20">
+        <div class="grid gap-y-8">
+            <div class="grid grid-cols-1">
+                <a href="#works">Works</a>
+                <a href="#about">About</a>
+            </div>
+            <div class="grid grid-cols-1">
+                <p class="opacity-40">private projects</p>
+                <a href="#Photos">Photos</a>
+                <a href="#playground">Playground</a>
+            </div>
+        </div>
+        <div class="" data-name="btn-close">close</div>
+    </div>
+    <ColorThemeBtn classNameWrapper="relative z-20" />
+</nav>
+
+<style lang="scss">
+#sound-setting {
+    input[type="range"] {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        height: 7px;
+        // background-color: var(--color-black01);
+        background-color: transparent;
+        width: 100%;
+        margin: 0px;
+        border: none;
+    }
+
+    input[type='range']::-webkit-slider-runnable-track {
+        background-color: var(--color-black01);
+        height: 5px;
+        border-radius: 0px;
+        border: 1px solid var(--color-white01);
+    }
+
+    input[type='range']::-webkit-slider-thumb {
+        appearance:none;
+        background-color: #fff;
+        height:calc(100% + 12px);
+        width:9px;
+        border-top:solid 5px var(--color-black01);
+        border-bottom:solid 5px var(--color-black01);
+        transform: translateY(-6px);
+        border-radius: 0px;
+    }
+}
+</style>

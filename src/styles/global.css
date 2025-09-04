@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import "./variables.css";
+
+@theme {
+    --color-black01: var(--c-black-01);
+    --color-gray01: var(--c-gray-01);
+    --color-gray02: var(--c-gray-02);
+    --color-white01: var(--c-white-01);
+    --color-white02: var(--c-white-02);
+    --color-white03: var(--c-white-03);
+    --color-blue01: var(--c-blue-01);
+    --color-borderGray01: var(--c-border-gray-01);
+
+    --font-family-abc: "ABC Arizona Flare Variable Unlicensed Trial", sans-serif;
+
+    --spacing-s-16-60: var(--s-16-60);
+    --spacing-s-20-60: var(--s-20-60);
+    --spacing-more-4: var(--s-more-4);
+    --spacing-more-12: var(--s-more-12);
+    --spacing-more-15: var(--s-more-15);
+    --spacing-more-20: var(--s-more-20);
+    --spacing-more-24: var(--s-more-24);
+    --spacing-more-30: var(--s-more-30);
+    --spacing-more-40: var(--s-more-40);
+    --spacing-more-50: var(--s-more-50);
+    --spacing-more-60: var(--s-more-60);
+    --spacing-more-70: var(--s-more-70);
+    --spacing-more-80: var(--s-more-80);
+    --spacing-more-96: var(--s-more-96);
+    --spacing-more-120: var(--s-more-120);
+    --spacing-more-140: var(--s-more-140);
+    --spacing-more-156: var(--s-more-156);
+    --spacing-more-176: var(--s-more-176);
+    --spacing-more-200: var(--s-more-200);
+    --spacing-more-240: var(--s-more-240);
+    --spacing-more-300: var(--s-more-300);
+    --spacing-more-420: var(--s-more-420);
+
+    --spacing-baseX: var(--baseX);
+    --spacing-30-40: clamp(30px, 3.846vw + 0.062rem, 40px);
+
+    --text-t10: 10px;
+    --text-more-10: max(0.6vw, 1rem);
+    --text-more-11: var(--more-11);
+    --text-more-12: var(--more-12);
+    --text-more-13: var(--more-13);
+    --text-more-14: var(--more-14);
+    --text-more-15: var(--more-15);
+    --text-more-16: var(--more-16);
+    --text-more-18: var(--more-18);
+    --text-more-19: max(1.28vw, 1.9rem);
+    --text-more-20: max(1.3vw, 2rem);
+    --text-more-22: var(--s-more-22);
+    --text-more-24: var(--more-24);
+    --text-more-30: var(--more-30);
+    --text-more-28: max(1.7vw, 2.8rem);
+    --text-more-32: var(--more-32);
+    --text-more-36: var(--more-36);
+    --text-more-52: max(3.5vw, 5.2rem);
+
+    --text-f-13-14: clamp(1.3rem, 0.224vw + 1.07rem, 1.4rem);
+    --text-f-13-15: clamp(1.3rem, 0.224vw + 1.07rem, 1.5rem);
+    --text-f-14-16: clamp(1.4rem, 0.224vw + 1.17rem, 1.6rem);
+    --text-f-15-20: clamp(1.5rem, 0.173vw + 1.368rem, 2.0rem);
+    --text-f-16-18: clamp(1.6rem, 0.173vw + 1.468rem, 1.8rem);
+    --text-f-17-19: clamp(1.7rem, 0.336vw + 1.356rem, 1.9rem);
+    --text-f-21-24: clamp(2.0rem, 3.5vw, 2.4rem);
+    --text-f-48-52: clamp(4.8rem, 0.447vw + 4.341rem, 5.2rem);
+}

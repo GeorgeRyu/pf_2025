@@ -1,0 +1,166 @@
+---
+// WebGLScene.astro
+---
+
+<div id="webgl-container" class="relative z-10"></div>
+
+<script>
+    import * as THREE from 'three';
+    import Stats from 'stats.js';
+    import { GUI } from 'lil-gui';
+    import gsap from 'gsap';
+    import ScrollTrigger from 'gsap/ScrollTrigger';
+    import SplitText from 'gsap/SplitText';
+
+    gsap.registerPlugin(ScrollTrigger, SplitText);
+
+    
+    class WebGLScene {
+        private renderer: THREE.WebGLRenderer;
+        private container: HTMLElement | null;
+        private scene: THREE.Scene;
+        private camera: THREE.PerspectiveCamera;
+        private isDebug: boolean;
+        private rectangles: THREE.Mesh[] = [];  // 配列で管理
+        private groupRectangles!: THREE.Group;
+        private stats!: Stats;
+        private gui!: GUI;
+
+        constructor() {
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            this.container = document.getElementById('webgl-container');
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            // this.isDebug = window.location.href.includes('#debug');
+            this.isDebug = false;
+
+            this.init();
+            if (this.isDebug) this.debug();
+            this.animate();
+        }
+
+        init() {
+            // レンダラーの設定
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.setClearColor(0x000000, 0);
+            if (this.container) {
+                this.container.appendChild(this.renderer.domElement);
+            }
+
+            // カメラの位置設定
+            this.camera.position.z = 5;
+
+            // 長方形のジオメトリを作成
+            const geometry = new THREE.BoxGeometry(2, 35, 0.05);
+            // const geometry = new THREE.BoxGeometry(20, 350, 30.6);
+            
+            // マテリアルを作成
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x000000,
+                side: THREE.DoubleSide
+            });
+
+            // メッシュを作成
+            for (let i = 0; i < 7; i++) {
+                this.rectangles.push(new THREE.Mesh(geometry, material));
+                this.rectangles[i].rotation.z = Math.PI / 12 * i;
+            }
+
+            this.groupRectangles = new THREE.Group();
+            this.groupRectangles.add(...this.rectangles);
+            this.groupRectangles.position.set(-17, -6, -15);
+
+            this.scene.add(this.groupRectangles);
+
+            // ウィンドウリサイズ対応
+            window.addEventListener('resize', this.onWindowResize.bind(this));
+        }
+
+        debug() {
+            this.stats = new Stats();
+            this.stats.showPanel(0);
+            document.body.appendChild(this.stats.dom);
+
+            this.gui = new GUI();
+            const wrapRactanglesGroup = this.gui.addFolder('Ractangles').close();
+            wrapRactanglesGroup.add(this.camera.position, 'z', 0, 100).name('Camera Z');
+            wrapRactanglesGroup.add(this.groupRectangles.position, 'x', -180, 180).name('Pos X');
+            wrapRactanglesGroup.add(this.groupRectangles.position, 'y', -50, 50).name('Pos Y');
+            wrapRactanglesGroup.add(this.groupRectangles.position, 'z', -50, 50).name('Pos Z');
+            wrapRactanglesGroup.add(this.groupRectangles.rotation, 'x', -Math.PI, Math.PI).name('Rot X');
+            wrapRactanglesGroup.add(this.groupRectangles.rotation, 'y', -Math.PI, Math.PI).name('Rot Y');
+            wrapRactanglesGroup.add(this.groupRectangles.rotation, 'z', -Math.PI, Math.PI).name('Rot Z');
+            wrapRactanglesGroup.add(this.groupRectangles.scale, 'x', 0, 10).name('Scale X');
+            wrapRactanglesGroup.add(this.groupRectangles.scale, 'y', 0, 10).name('Scale Y');
+            wrapRactanglesGroup.add(this.groupRectangles.scale, 'z', 0, 10).name('Scale Z');
+            for (let i = 0; i < this.rectangles.length; i++) {
+                const rectFolder = this.gui.addFolder(`Rect ${i + 1}`).close();
+                rectFolder.add(this.rectangles[i].position, 'x', -180, 180).name(`Rect ${i} - Pos X`);
+                rectFolder.add(this.rectangles[i].position, 'y', -50, 50).name(`Rect ${i} - Pos Y`);
+                rectFolder.add(this.rectangles[i].position, 'z', -50, 50).name(`Rect ${i} - Pos Z`);
+                rectFolder.add(this.rectangles[i].rotation, 'x', -Math.PI, Math.PI).name(`Rect ${i} - Rot X`);
+                rectFolder.add(this.rectangles[i].rotation, 'y', -Math.PI, Math.PI).name(`Rect ${i} - Rot Y`);
+                rectFolder.add(this.rectangles[i].rotation, 'z', -Math.PI, Math.PI).name(`Rect ${i} - Rot Z`);
+                rectFolder.add(this.rectangles[i].scale, 'x', 0, 10).name(`Rect ${i} - Scale X`);
+                rectFolder.add(this.rectangles[i].scale, 'y', 0, 10).name(`Rect ${i} - Scale Y`);
+                rectFolder.add(this.rectangles[i].scale, 'z', 0, 10).name(`Rect ${i} - Scale Z`);
+            }
+        }
+
+        // アニメーション
+        animate() {
+            this.isDebug && this.stats.begin(); // パフォーマンス計測開始   
+            this.renderer.render(this.scene, this.camera);
+            this.isDebug && this.stats.end(); // パフォーマンス計測終了
+
+            requestAnimationFrame(this.animate.bind(this));
+        }
+
+        animationByScroll(progress: number) {
+            // スクロール進捗に基づいてアニメーション
+            if (this.groupRectangles) {
+                // グループ全体の回転
+                this.groupRectangles.rotation.y = progress * Math.PI * 2;
+                
+                // 個別の長方形の回転
+                this.rectangles.forEach((rect, index) => {
+                    rect.rotation.z = (Math.PI / 12 * index) + (progress * Math.PI * 0.5);
+                });
+            }
+        }
+
+        // ウィンドウリサイズ対応
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    }
+
+    // DOMContentLoadedで初期化
+    document.addEventListener('DOMContentLoaded', () => {
+        const webglScene = new WebGLScene();
+        
+        // スクロールアニメーションからのイベントをリッスン
+        document.addEventListener('webgl-scroll-update', (event: any) => {
+            const { progress } = event.detail;
+            webglScene.animationByScroll(progress);
+        });
+    });
+</script>
+
+
+<style>
+    #webgl-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+    }
+
+    #webgl-container canvas {
+        display: block;
+    }
+</style> 

@@ -1,0 +1,76 @@
+:root {
+    --c-black-01: #1A1A1B;
+    --c-border-gray-01: #858585;
+    --c-txt-black-01: #444;
+    --c-gray-01: #707070;
+    --c-gray-02: #a8a8a8;
+    --c-white-01: #FFFFFF;
+    --c-white-02: #F0F0ED;
+    --c-white-03: #E5E5E1;
+    --c-blue-01: #35436A;
+    --c-blue-02: #1D3765;
+    --c-green-01: #477F33;
+    --c-brawn-01: #A0472F;
+    
+
+    /* --baseX: max(4.0540vw,16px);  */
+    --baseX: max(4.0540vw,42px); 
+
+    --leftGap: min(4vw, 60px);
+    
+    --s-16-60: clamp(16px, 4.5vw, 60px);
+    --s-20-60: clamp(20px, 5.5vw, 60px);
+
+    --s-more-4: max(0.3vw,4px);
+    --s-more-12: max(0.8vw,12px);
+    --s-more-15: max(1vw,15px);
+    --s-more-20: max(1.3vw,20px);
+    --s-more-22: max(1.4vw,22px);
+    --s-more-24: max(1.6vw,24px);
+    --s-more-30: max(2vw,30px);
+    --s-more-40: max(2.7vw,40px);
+    --s-more-50: max(3.3vw,50px);
+    --s-more-60: max(4vw,60px);
+    --s-more-70: max(4.72vw,70px);
+    --s-more-80: max(5.44vw,80px);
+    --s-more-96: max(6.4vw, 96px);
+    --s-more-120: max(8vw,120px);
+    --s-more-140: max(9.5vw,140px);
+    --s-more-156: max(10vw,156px);
+    --s-more-176: max(12.8vw,176px);
+    --s-more-200: max(13.5vw,200px);
+    --s-more-240: max(16vw,240px);
+    --s-more-300: max(20vw,300px);
+    --s-more-420: max(26.25vw,420px);
+
+    --more-11: max(0.7vw,1.1rem);
+    --more-12: max(0.82vw,1.2rem);
+    --more-13: max(0.86vw,1.3rem);
+    --more-14: max(0.9vw,1.4rem);
+    --more-15: max(1vw,1.5rem);
+    --more-16: max(1vw,1.6rem);
+    --more-17: max(1.1vw,1.7rem);
+    --more-18: max(1.2vw,1.8rem);
+    --more-19: max(1.5vw,1.9rem);
+    --more-20: max(1.55vw,2.0rem);
+    --more-22: max(1.35vw,2.2rem);
+    --more-24: max(1.5vw,2.4rem);
+    --more-30: max(2vw,3rem);
+    --more-32: max(1.85vw,3.2rem);
+    --more-36: max(2.25vw,3.6rem);
+    --more-38: max(2.56vw,3.8rem);
+
+    --easing-easeOut01: cubic-bezier(0.67, 0.31, 0.15, 1);
+    --easing-easeOut02: cubic-bezier(0.11, 0.58, 0.26, 1.01);
+
+    /* デザイン幅の定数 */
+    --pc-design-width: 1480;
+    --sp-design-width: 375;
+
+    /* ビューポートベースの計算関数 */
+    --pvw: calc(1vw * var(--pc-design-width) / 100);
+    --svw: calc(1vw * var(--sp-design-width) / 100);
+
+    /* ホバー用のメディアクエリ */
+    --hover-query: (hover: hover) and (pointer: fine);
+}

@@ -1,0 +1,23 @@
+---
+import SoundBtn from './SoundBtn.astro';
+---
+
+<footer class="fixed bottom-0 left-0 grid grid-cols-2 gap-x-[8px] items-end w-full h-auto pb-s-20-60 px-s-16-60 z-10 lg:grid-cols-6 lg:gap-x-4 lg:pb-more-40">
+    <div id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
+
+    <div class="grid grid-cols-1 gap-y-6 lg:col-span-5 lg:grid-cols-5 lg:gap-x-4">
+        <div class="grid grid-cols-1 gap-y-1 lg:col-span-2 lg:col-start-4 lg:grid-cols-2 lg:gap-x-4">
+            <div class="flex items-center gap-x-8">
+                <a href="http://" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a href="http://" target="_blank" rel="noopener noreferrer">X</a>
+            </div>
+            <a href="mailto:r.takahasii@gmail.com">r.takahasii@gmail.com</a>
+        </div>
+        <div id="scroll" class="lg:self-end lg:col-start-1 lg:row-start-1">{ `{ scroll }` }</div>
+    </div>
+
+    <SoundBtn classNameWrapper="hidden lg:flex place-self-end" />
+</footer>
+<style>
+
+</style>

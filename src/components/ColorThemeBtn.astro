@@ -1,0 +1,15 @@
+---
+interface Props {
+	classNameWrapper: string;
+}
+
+const { classNameWrapper } = Astro.props;
+---
+
+
+<p class={`js-color-theme ${classNameWrapper} cursor-pointer pointer-events-auto`}>
+    color == '<span data-name="colorName">black</span>'
+</p>
+
+<style>
+</style>

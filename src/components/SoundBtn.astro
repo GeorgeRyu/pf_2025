@@ -1,0 +1,15 @@
+---
+interface Props {
+	classNameWrapper: string;
+}
+
+const { classNameWrapper } = Astro.props;
+---
+
+<div class={`flex ${classNameWrapper}`}>
+	<span>sound(off)</span>
+	<span data-name="btn-sound-setting" class="cursor-pointer">{ `{ setting }` }</span>
+</div>
+
+<style>
+</style>
