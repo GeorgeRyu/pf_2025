@@ -13,12 +13,45 @@ export class ScrollAnimations {
         // this.distance = this.isPc ? 1400 : 1000;
         this.distance = window.innerHeight;
         this.chars = this.getRandomElement(["■.▪▌▐▬", "_ - .", "//_", "0123456789 -_"]);
+        this.lenis = null;
 
         this.init();
     }
 
     init() {
+        // Lenisインスタンスを取得
+        this.setupLenisIntegration();
         this.setupScrollAnimations();
+    }
+
+    setupLenisIntegration() {
+        // Lenisのスクロールイベントをリッスン
+        window.addEventListener('lenis-scroll', (e) => {
+            // ScrollTriggerの更新
+            ScrollTrigger.update();
+        });
+
+        // Lenisインスタンスへの参照を取得
+        setTimeout(() => {
+            if (window.app && window.app.lenisSmoothScroll) {
+                this.lenis = window.app.lenisSmoothScroll.lenis;
+                
+                // ScrollTriggerにLenisを統合
+                const lenisInstance = this.lenis;
+                ScrollTrigger.scrollerProxy(document.body, {
+                    scrollTop(value) {
+                        if (arguments.length) {
+                            lenisInstance.scrollTo(value, { immediate: true });
+                        }
+                        return lenisInstance.scroll;
+                    },
+                    getBoundingClientRect() {
+                        return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+                    },
+                    pinType: document.body.style.transform ? "transform" : "fixed"
+                });
+            }
+        }, 100);
     }
 
     setupScrollAnimations() {
@@ -49,8 +82,7 @@ export class ScrollAnimations {
                 leaveFunc = '';
                 enterBackFunc = () => tlShowTxt.restart();
                 leaveBackFunc = '';
-                markers = true;
-                
+                markers = false;
 
             }else {
 
@@ -68,7 +100,7 @@ export class ScrollAnimations {
                     leaveFunc = () => '';
                     enterBackFunc = () => tlShowTxt.reverse();
                     leaveBackFunc = () => '';
-                    markers = true;
+                    markers = false;
                     
                 }else {
                     pStart = `${dis} center`;
@@ -77,7 +109,7 @@ export class ScrollAnimations {
                     leaveFunc = () => tlShowTxt.reverse();
                     enterBackFunc = () => tlShowTxt.restart();
                     leaveBackFunc = () => tlShowTxt.reverse();
-                    markers = true;
+                    markers = false;
                 }
             }
 
