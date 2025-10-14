@@ -38,10 +38,9 @@ const playgrounds = [
 ];
 ---
 
-<main class="relative h-[750vh]">
-	<WebGLScene />
-	
-	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
+<main class="relative h-[750vh] bg-white01">
+    <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
+	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-white02 mix-blend-difference z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 lg:hidden">
 			<div class="absolute top-0 right-[calc(100%+3px)] w-[2px] h-4/5 bg-black01"></div>
 			<div class="" data-name="name-area">Works</div>
@@ -83,7 +82,6 @@ const playgrounds = [
 							{project.title}
 						</button>
 					))}
-
 				</div>
 			</div>
 

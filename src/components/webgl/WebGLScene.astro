@@ -1,8 +1,10 @@
 ---
-// WebGLScene.astro
+export interface Props { movies?: string[] }
+const { movies = [] } = Astro.props;
+const moviesAttr = encodeURIComponent(JSON.stringify(movies));
 ---
 
-<div id="webgl-container" class="relative z-10"></div>
+<div id="webgl-container" class="relative z-10" data-movies={moviesAttr}></div>
 
 <script>
     import * as THREE from 'three';
@@ -25,6 +27,11 @@
         private groupRectangles!: THREE.Group;
         private stats!: Stats;
         private gui!: GUI;
+        private videos: HTMLVideoElement[] = [];
+        private videoTexturesSlices: THREE.VideoTexture[][] = [];
+        private blackMaterial!: THREE.MeshBasicMaterial;
+        private movies: string[] = [];
+        private currentVideoIndex: number | null = null;
 
         constructor() {
             this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -34,46 +41,979 @@
             // this.isDebug = window.location.href.includes('#debug');
             this.isDebug = false;
 
+            // movies を data 属性から取得
+            const moviesStr = this.container?.getAttribute('data-movies') || '';
+            try {
+                this.movies = moviesStr ? JSON.parse(decodeURIComponent(moviesStr)) : [];
+            } catch (e) {
+                this.movies = [];
+            }
+
             this.init();
             if (this.isDebug) this.debug();
+            this.scrollAnimations();
+            this.attachHoverHandlers();
             this.animate();
         }
 
         init() {
             // レンダラーの設定
+            let mmInit = gsap.matchMedia();
+
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.renderer.setClearColor(0x000000, 0);
             if (this.container) {
                 this.container.appendChild(this.renderer.domElement);
             }
 
-            // カメラの位置設定
-            this.camera.position.z = 5;
-
             // 長方形のジオメトリを作成
-            const geometry = new THREE.BoxGeometry(2, 35, 0.05);
-            // const geometry = new THREE.BoxGeometry(20, 350, 30.6);
+            const geometry = new THREE.BoxGeometry(2, 35, 1.1256);
             
-            // マテリアルを作成
-            const material = new THREE.MeshBasicMaterial({ 
+            // マテリアル（黒）
+            this.blackMaterial = new THREE.MeshBasicMaterial({ 
                 color: 0x000000,
                 side: THREE.DoubleSide
             });
 
             // メッシュを作成
             for (let i = 0; i < 7; i++) {
-                this.rectangles.push(new THREE.Mesh(geometry, material));
+                this.rectangles.push(new THREE.Mesh(geometry, this.blackMaterial));
                 this.rectangles[i].rotation.z = Math.PI / 12 * i;
+                this.rectangles[i].scale.z = 0.01;
+
             }
 
             this.groupRectangles = new THREE.Group();
             this.groupRectangles.add(...this.rectangles);
-            this.groupRectangles.position.set(-17, -6, -15);
+            
+            
+            mmInit.add('(max-width: 1023px)', () => {
+                // カメラの位置設定
+                this.camera.position.z = 18;
+                this.groupRectangles.position.set(-9, -3.5, -15);
+                
+            });
+            
+            mmInit.add('(min-width: 1024px)', () => {
+                // カメラの位置設定
+                this.camera.position.z = 5;
+                this.groupRectangles.position.set(-17, -6, -15);
+
+            });
 
             this.scene.add(this.groupRectangles);
 
             // ウィンドウリサイズ対応
             window.addEventListener('resize', this.onWindowResize.bind(this));
+        }
+
+        private ensureVideosPrepared() {
+            if (this.videos.length || !this.movies.length) return;
+
+            // 7本想定。movies が不足する場合は打ち切り
+            const videoCount = Math.min(7, this.movies.length);
+            for (let i = 0; i < videoCount; i++) {
+                const url = this.movies[i];
+                const video = document.createElement('video');
+                video.src = url;
+                video.muted = true;
+                video.loop = true;
+                (video as any).playsInline = true;
+                video.preload = 'auto';
+                video.crossOrigin = 'anonymous';
+                this.videos.push(video);
+
+                const slices: THREE.VideoTexture[] = [];
+                for (let s = 0; s < 7; s++) {
+                    const tex = new THREE.VideoTexture(video);
+                    tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.wrapS = THREE.ClampToEdgeWrapping;
+                    tex.wrapT = THREE.ClampToEdgeWrapping;
+                    tex.repeat.set(1/7, 1);
+                    tex.offset.set((1/7) * s, 0);
+                    slices.push(tex);
+                }
+                this.videoTexturesSlices.push(slices);
+            }
+        }
+
+        private showVideoAcrossRectangles(videoIndex: number) {
+            this.ensureVideosPrepared();
+            if (!this.videoTexturesSlices[videoIndex]) return;
+
+            // 以前の動画を停止
+            if (this.currentVideoIndex !== null && this.videos[this.currentVideoIndex]) {
+                this.videos[this.currentVideoIndex].pause();
+            }
+
+            const slices = this.videoTexturesSlices[videoIndex];
+            for (let i = 0; i < this.rectangles.length; i++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    map: slices[i],
+                    side: THREE.DoubleSide
+                });
+                // トーンマッピングの影響を受けないように（安全策）
+                (mat as any).toneMapped = false;
+                this.rectangles[i].material = mat;
+            }
+
+            // 再生開始（ホバー中のみ）
+            const vid = this.videos[videoIndex];
+            if (vid) {
+                try { vid.currentTime = 0; } catch(e) {}
+                vid.loop = true;
+                vid.play().catch(() => {});
+            }
+
+            this.currentVideoIndex = videoIndex;
+        }
+
+        private clearVideoFromRectangles() {
+            // 動画停止
+            if (this.currentVideoIndex !== null && this.videos[this.currentVideoIndex]) {
+                this.videos[this.currentVideoIndex].pause();
+            }
+            // 黒に戻す
+            for (let i = 0; i < this.rectangles.length; i++) {
+                this.rectangles[i].material = this.blackMaterial;
+            }
+            this.currentVideoIndex = null;
+        }
+
+        private attachHoverHandlers() {
+            const worksInfo = document.querySelector('[data-name="works-info"]');
+            if (!worksInfo) return;
+
+            // JS有効時は .project-modal-btn を使用、なければ .project-link をフォールバック
+            let items = worksInfo.querySelectorAll('.project-modal-btn');
+            if (!items || items.length === 0) {
+                items = worksInfo.querySelectorAll('.project-link');
+            }
+
+            const itemsArr = Array.from(items).slice(0, 7) as HTMLElement[];
+            itemsArr.forEach((el, idx) => {
+                el.addEventListener('mouseenter', () => this.showVideoAcrossRectangles(idx));
+                el.addEventListener('mouseleave', () => this.clearVideoFromRectangles());
+                el.addEventListener('focus', () => this.showVideoAcrossRectangles(idx));
+                el.addEventListener('blur', () => this.clearVideoFromRectangles());
+            });
+        }
+
+        scrollAnimations() {
+            const distanceHeight = window.innerHeight,
+                body = document.querySelector('body'),
+                groupRectangles = this.groupRectangles,
+                    rac1 = this.rectangles[0],
+                    rac2 = this.rectangles[1],
+                    rac3 = this.rectangles[2],
+                    rac4 = this.rectangles[3],
+                    rac5 = this.rectangles[4],
+                    rac6 = this.rectangles[5],
+                    rac7 = this.rectangles[6],
+                    tlWorkToAbout = gsap.timeline({ // works to about
+                        scrollTrigger: {
+                            trigger: body,
+                            start: `${distanceHeight} bottom-=10%`,
+                            end: `${distanceHeight * 2} center`,
+                            scrub: true,
+                            markers: false
+                        }
+                    }),
+                    tlAboutToPhotos = gsap.timeline({ // about to photos
+                        scrollTrigger: {
+                            trigger: body,
+                            start: `${distanceHeight * 3.5} bottom`,
+                            end: `${distanceHeight * 4} center`,
+                            scrub: true,
+                            markers: false,
+                        }
+                    }),
+                    tlPhotosToPlayground = gsap.timeline({ // photos to playground
+                        scrollTrigger: {
+                            trigger: body,
+                            start: `${distanceHeight * 5.5} bottom`,
+                            end: `${distanceHeight * 6} center`,
+                            scrub: true,
+                            markers: false
+                        }
+                    });
+
+            let mm = gsap.matchMedia();
+
+            mm.add('(max-width: 1023px)', () => {
+                tlWorkToAbout
+                    .to(rac1.position, {
+                        x: 4,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    })
+                    .to(rac2.position, {
+                        x: 1.8,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '0.2')
+                    .to(rac2.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(rac3.position, {
+                        x: -0.4,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '0.4')
+                    .to(rac3.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(rac4.position, {
+                        x: -2.6,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '0.6')
+                    .to(rac4.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(rac5.position, {
+                        x: -4.8,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '0.8')
+                    .to(rac5.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(rac6.position, {
+                        x: -7,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '1')
+                    .to(rac6.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(rac7.position, {
+                        x: -9.2,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '1.2')
+                    .to(rac7.rotation, {
+                        z: 0,
+                        duration: 1,
+                        ease: 'easeOut01'
+                    }, '<')
+                    .to(groupRectangles.position, {
+                        x: -13.5,
+                        y: -13,
+                        z: 10,
+                        duration: 1.8,
+                        ease: 'easeOut01'
+                    }, '0.8')
+                    .to(groupRectangles.rotation, {
+                        z: -0.7,
+                        duration: 1.8,
+                        ease: 'easeOut01'
+                    }, '<');
+
+            tlAboutToPhotos
+                .to([ rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position ], {
+                    y: 5,
+                    duration: 1,
+                    ease: 'easeOut01',
+                    stagger: 0.1,
+                })            
+                .to(groupRectangles.position, {
+                    x: 1,
+                    y: -1,
+                    z: 10,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.position, {
+                    x: 5,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac2.position, {
+                    x: 3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac3.position, {
+                    x: 1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: -5,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac7.position, {
+                    x: -7,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(groupRectangles.rotation, {
+                    z: 0,
+                    x: (Math.PI / 2),
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(groupRectangles.scale, {
+                    y: 0.001,
+                    duration: 1.5,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(groupRectangles.position, {
+                    y: -1.8,
+                    z: 4,
+                    duration: 1.5,
+                    ease: 'easeOut01'
+                }, '<')
+                .to([ rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale ], {
+                    z: 1,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '1.2')
+                .to(rac1.position, {
+                    x: 5.3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                })
+                .to(rac2.position, {
+                    x: 3.2,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac3.position, {
+                    x: 1.1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -3.1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: -5.2,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac7.position, {
+                    x: -7.3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+
+                .to(groupRectangles.position, {
+                    z: 8.6,
+                    duration: 1.5,
+                    ease: 'easeOut01'
+                })
+                .to(rac2.position, {
+                    x: -2.1,
+                    z: 0.7628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: 0.1,
+                    z: -1.8884,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac1.position, {
+                    x: 0.1,
+                    z: 0.7628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<+=0.075')
+                .to(rac7.position, {
+                    x: -2.1,
+                    z: -1.8884,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')                
+                .to(rac3.position, {
+                    x: 1.2,
+                    z: -0.5628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    z: -0.5628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -3.2,
+                    z: -0.5628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+
+            tlPhotosToPlayground
+                .to(groupRectangles.position, {
+                    z: -10,
+                    y: -6,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(groupRectangles.scale, {
+                    y: 1,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                }, '<')
+
+                .to(rac7.position, {
+                    z: 3.485,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '0.3')
+                .to(rac7.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac7.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac6.position, {
+                    z: 2.135,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac6.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac6.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac5.position, {
+                    z: 0.7825,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac5.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac5.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac4.position, {
+                    z: -0.5625,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac4.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac4.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac3.position, {
+                    z: -1.9125,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac3.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac3.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac2.position, {
+                    z: -3.2625,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac2.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac2.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.position, {
+                    z: -4.6215,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac1.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+
+                .to(groupRectangles.position, {
+                    z: 0,
+                    y: -4.5,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(rac4.position, {
+                    x: -14.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to([rac3.position, rac5.position], {
+                    x: -17,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to([rac2.position, rac6.position], {
+                    x: -19.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to([rac1.position, rac7.position], {
+                    x: -22,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+            });
+
+
+
+            mm.add('(min-width: 1024px)', () => {
+                tlWorkToAbout
+                .to(rac1.position, {
+                    x: 4,
+                    duration: 1,
+                    ease: 'easeOut01'
+                })
+                .to(rac2.position, {
+                    x: 1.8,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '0.2')
+                .to(rac2.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(rac3.position, {
+                    x: -0.4,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '0.4')
+                .to(rac3.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(rac4.position, {
+                    x: -2.6,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '0.6')
+                .to(rac4.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(rac5.position, {
+                    x: -4.8,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '0.8')
+                .to(rac5.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(rac6.position, {
+                    x: -7,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '1')
+                .to(rac6.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(rac7.position, {
+                    x: -9.2,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '1.2')
+                .to(rac7.rotation, {
+                    z: 0,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(groupRectangles.position, {
+                    x: -12.32,
+                    y: -14,
+                    z: 1.6,
+                    duration: 1.8,
+                    ease: 'easeOut01'
+                }, '0.8')
+                .to(groupRectangles.rotation, {
+                    z: -0.50265,
+                    duration: 1.8,
+                    ease: 'easeOut01'
+                }, '<');
+
+            tlAboutToPhotos
+                .to([ rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position ], {
+                    y: 5,
+                    duration: 1,
+                    ease: 'easeOut01',
+                    stagger: 0.1,
+                })            
+                .to(groupRectangles.position, {
+                    x: 1,
+                    y: -1,
+                    z: -0.9,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.position, {
+                    x: 5,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac2.position, {
+                    x: 3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac3.position, {
+                    x: 1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: -5,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac7.position, {
+                    x: -7,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(groupRectangles.rotation, {
+                    z: 0,
+                    x: (Math.PI / 2),
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(groupRectangles.scale, {
+                    y: 0.001,
+                    duration: 1.5,
+                    ease: 'easeOut01'
+                }, '<')
+                .to(groupRectangles.position, {
+                    y: -0.7,
+                    z: 1.66,
+                    duration: 1.5,
+                    ease: 'easeOut01'
+                }, '<')
+                .to([ rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale ], {
+                    z: 1,
+                    duration: 1,
+                    ease: 'easeOut01'
+                }, '1.2')
+                .to(rac1.position, {
+                    x: 5.3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                })
+                .to(rac2.position, {
+                    x: 3.2,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac3.position, {
+                    x: 1.1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -3.1,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: -5.2,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac7.position, {
+                    x: -7.3,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+
+                .to(rac1.position, {
+                    x: 2.6,
+                    z: -0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                })
+                .to(rac2.position, {
+                    x: 2.6,
+                    z: 0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac3.position, {
+                    x: 0.2,
+                    z: -0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac4.position, {
+                    x: -1,
+                    z: 0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac5.position, {
+                    x: -2.2,
+                    z: -0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac6.position, {
+                    x: -4.6,
+                    z: 0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')
+                .to(rac7.position, {
+                    x: -4.6,
+                    z: -0.6628,
+                    duration: 1.5,
+                    ease: 'power3.out'
+                }, '<')         
+
+            tlPhotosToPlayground
+                .to(groupRectangles.position, {
+                    z: -20,
+                    y:- 1,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(groupRectangles.scale, {
+                    y: 1,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                }, '<')
+
+                .to(rac7.position, {
+                    z: 3.485,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '0.3')
+                .to(rac7.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac7.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac6.position, {
+                    z: 2.135,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac6.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac6.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac5.position, {
+                    z: 0.7825,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac5.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac5.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac4.position, {
+                    z: -0.5625,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac4.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac4.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac3.position, {
+                    z: -1.9125,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac3.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac3.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac2.position, {
+                    z: -3.2625,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac2.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac2.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.position, {
+                    z: -4.6215,
+                    x: 0,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to(rac1.rotation, {
+                    z: Math.PI / - 2,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to(rac1.scale, {
+                    x: 0.001,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+
+                .to(groupRectangles.position, {
+                    z: -10,
+                    y:- 1,
+                    duration: 1.5,
+                    ease: 'power3.inOut'
+                })
+                .to(rac4.position, {
+                    x: -18.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<')
+                .to([rac3.position, rac5.position], {
+                    x: -22.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to([rac2.position, rac6.position], {
+                    x: -26.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+                .to([rac1.position, rac7.position], {
+                    x: -30.5,
+                    duration: 1,
+                    ease: 'power3.inOut'
+                }, '<+0.1')
+            });
         }
 
         debug() {
@@ -83,7 +1023,7 @@
 
             this.gui = new GUI();
             const wrapRactanglesGroup = this.gui.addFolder('Ractangles').close();
-            wrapRactanglesGroup.add(this.camera.position, 'z', 0, 100).name('Camera Z');
+            wrapRactanglesGroup.add(this.camera.position, 'z', -30, 100).name('Camera Z');
             wrapRactanglesGroup.add(this.groupRectangles.position, 'x', -180, 180).name('Pos X');
             wrapRactanglesGroup.add(this.groupRectangles.position, 'y', -50, 50).name('Pos Y');
             wrapRactanglesGroup.add(this.groupRectangles.position, 'z', -50, 50).name('Pos Z');
@@ -95,16 +1035,101 @@
             wrapRactanglesGroup.add(this.groupRectangles.scale, 'z', 0, 10).name('Scale Z');
             for (let i = 0; i < this.rectangles.length; i++) {
                 const rectFolder = this.gui.addFolder(`Rect ${i + 1}`).close();
-                rectFolder.add(this.rectangles[i].position, 'x', -180, 180).name(`Rect ${i} - Pos X`);
-                rectFolder.add(this.rectangles[i].position, 'y', -50, 50).name(`Rect ${i} - Pos Y`);
-                rectFolder.add(this.rectangles[i].position, 'z', -50, 50).name(`Rect ${i} - Pos Z`);
-                rectFolder.add(this.rectangles[i].rotation, 'x', -Math.PI, Math.PI).name(`Rect ${i} - Rot X`);
-                rectFolder.add(this.rectangles[i].rotation, 'y', -Math.PI, Math.PI).name(`Rect ${i} - Rot Y`);
-                rectFolder.add(this.rectangles[i].rotation, 'z', -Math.PI, Math.PI).name(`Rect ${i} - Rot Z`);
-                rectFolder.add(this.rectangles[i].scale, 'x', 0, 10).name(`Rect ${i} - Scale X`);
-                rectFolder.add(this.rectangles[i].scale, 'y', 0, 10).name(`Rect ${i} - Scale Y`);
-                rectFolder.add(this.rectangles[i].scale, 'z', 0, 10).name(`Rect ${i} - Scale Z`);
+                rectFolder.add(this.rectangles[i].position, 'x', -180, 180).name(`Rect ${i + 1} - Pos X`);
+                rectFolder.add(this.rectangles[i].position, 'y', -50, 50).name(`Rect ${i + 1} - Pos Y`);
+                rectFolder.add(this.rectangles[i].position, 'z', -50, 50).name(`Rect ${i + 1} - Pos Z`);
+                rectFolder.add(this.rectangles[i].rotation, 'x', -Math.PI, Math.PI).name(`Rect ${i + 1} - Rot X`);
+                rectFolder.add(this.rectangles[i].rotation, 'y', -Math.PI, Math.PI).name(`Rect ${i + 1} - Rot Y`);
+                rectFolder.add(this.rectangles[i].rotation, 'z', -Math.PI, Math.PI).name(`Rect ${i + 1} - Rot Z`);
+                rectFolder.add(this.rectangles[i].scale, 'x', 0, 10).name(`Rect ${i + 1} - Scale X`);
+                rectFolder.add(this.rectangles[i].scale, 'y', 0, 10).name(`Rect ${i + 1} - Scale Y`);
+                rectFolder.add(this.rectangles[i].scale, 'z', 0, 10).name(`Rect ${i + 1} - Scale Z`);
             }
+
+            document.addEventListener('scroll', () => {
+                const groupRectangles = this.groupRectangles,
+                    rectangles = this.rectangles,
+                    grPx = groupRectangles.position.x,
+                    grPy = groupRectangles.position.y,
+                    grPz = groupRectangles.position.z,
+                    grRx = groupRectangles.rotation.x,
+                    grRy = groupRectangles.rotation.y,
+                    grRz = groupRectangles.rotation.z,
+                    grSx = groupRectangles.scale.x,
+                    grSy = groupRectangles.scale.y,
+                    grSz = groupRectangles.scale.z,
+                    rect1Px = rectangles[0].position.x,
+                    rect1Py = rectangles[0].position.y,
+                    rect1Pz = rectangles[0].position.z,
+                    rect1Rx = rectangles[0].rotation.x,
+                    rect1Ry = rectangles[0].rotation.y,
+                    rect1Rz = rectangles[0].rotation.z,
+                    rect1Sx = rectangles[0].scale.x,
+                    rect1Sy = rectangles[0].scale.y,
+                    rect1Sz = rectangles[0].scale.z,
+                    rect2Px = rectangles[1].position.x,
+                    rect2Py = rectangles[1].position.y,
+                    rect2Pz = rectangles[1].position.z,
+                    rect2Rx = rectangles[1].rotation.x,
+                    rect2Ry = rectangles[1].rotation.y,
+                    rect2Rz = rectangles[1].rotation.z,
+                    rect2Sx = rectangles[1].scale.x,
+                    rect2Sy = rectangles[1].scale.y,
+                    rect2Sz = rectangles[1].scale.z,
+                    rect3Px = rectangles[2].position.x,
+                    rect3Py = rectangles[2].position.y,
+                    rect3Pz = rectangles[2].position.z,
+                    rect3Rx = rectangles[2].rotation.x,
+                    rect3Ry = rectangles[2].rotation.y,
+                    rect3Rz = rectangles[2].rotation.z,
+                    rect3Sx = rectangles[2].scale.x,
+                    rect3Sy = rectangles[2].scale.y,
+                    rect3Sz = rectangles[2].scale.z,
+                    rect4Px = rectangles[3].position.x,
+                    rect4Py = rectangles[3].position.y,
+                    rect4Pz = rectangles[3].position.z,
+                    rect4Rx = rectangles[3].rotation.x,
+                    rect4Ry = rectangles[3].rotation.y,
+                    rect4Rz = rectangles[3].rotation.z,
+                    rect4Sx = rectangles[3].scale.x,
+                    rect4Sy = rectangles[3].scale.y,
+                    rect4Sz = rectangles[3].scale.z,
+                    rect5Px = rectangles[4].position.x,
+                    rect5Py = rectangles[4].position.y,
+                    rect5Pz = rectangles[4].position.z,
+                    rect5Rx = rectangles[4].rotation.x,
+                    rect5Ry = rectangles[4].rotation.y,
+                    rect5Rz = rectangles[4].rotation.z,
+                    rect5Sx = rectangles[4].scale.x,
+                    rect5Sy = rectangles[4].scale.y,
+                    rect5Sz = rectangles[4].scale.z,
+                    rect6Px = rectangles[5].position.x,
+                    rect6Py = rectangles[5].position.y,
+                    rect6Pz = rectangles[5].position.z,
+                    rect6Rx = rectangles[5].rotation.x,
+                    rect6Ry = rectangles[5].rotation.y,
+                    rect6Rz = rectangles[5].rotation.z,
+                    rect6Sx = rectangles[5].scale.x,
+                    rect6Sy = rectangles[5].scale.y,
+                    rect6Sz = rectangles[5].scale.z,
+                    rect7Px = rectangles[6].position.x,
+                    rect7Py = rectangles[6].position.y,
+                    rect7Pz = rectangles[6].position.z,
+                    rect7Rx = rectangles[6].rotation.x,
+                    rect7Ry = rectangles[6].rotation.y,
+                    rect7Rz = rectangles[6].rotation.z,
+                    rect7Sx = rectangles[6].scale.x,
+                    rect7Sy = rectangles[6].scale.y,
+                    rect7Sz = rectangles[6].scale.z;
+                console.log( 'prPx :' + grPx + ' prPy :' + grPy + ' prPz :' + grPz + ' prRx :' + grRx + ' prRy :' + grRy + ' prRz :' + grRz + ' prSx :' + grSx + ' prSy :' + grSy + ' prSz :' + grSz );
+                console.log( 'rect1Px :' + rect1Px + ' rect1Py :' + rect1Py + ' rect1Pz :' + rect1Pz + ' rect1Rx :' + rect1Rx + ' rect1Ry :' + rect1Ry + ' rect1Rz :' + rect1Rz + ' rect1Sx :' + rect1Sx + ' rect1Sy :' + rect1Sy + ' rect1Sz :' + rect1Sz );
+                console.log( 'rect2Px :' + rect2Px + ' rect2Py :' + rect2Py + ' rect2Pz :' + rect2Pz + ' rect2Rx :' + rect2Rx + ' rect2Ry :' + rect2Ry + ' rect2Rz :' + rect2Rz + ' rect2Sx :' + rect2Sx + ' rect2Sy :' + rect2Sy + ' rect2Sz :' + rect2Sz );
+                console.log( 'rect3Px :' + rect3Px + ' rect3Py :' + rect3Py + ' rect3Pz :' + rect3Pz + ' rect3Rx :' + rect3Rx + ' rect3Ry :' + rect3Ry + ' rect3Rz :' + rect3Rz + ' rect3Sx :' + rect3Sx + ' rect3Sy :' + rect3Sy + ' rect3Sz :' + rect3Sz );
+                console.log( 'rect4Px :' + rect4Px + ' rect4Py :' + rect4Py + ' rect4Pz :' + rect4Pz + ' rect4Rx :' + rect4Rx + ' rect4Ry :' + rect4Ry + ' rect4Rz :' + rect4Rz + ' rect4Sx :' + rect4Sx + ' rect4Sy :' + rect4Sy + ' rect4Sz :' + rect4Sz );
+                console.log( 'rect5Px :' + rect5Px + ' rect5Py :' + rect5Py + ' rect5Pz :' + rect5Pz + ' rect5Rx :' + rect5Rx + ' rect5Ry :' + rect5Ry + ' rect5Rz :' + rect5Rz + ' rect5Sx :' + rect5Sx + ' rect5Sy :' + rect5Sy + ' rect5Sz :' + rect5Sz );
+                console.log( 'rect6Px :' + rect6Px + ' rect6Py :' + rect6Py + ' rect6Pz :' + rect6Pz + ' rect6Rx :' + rect6Rx + ' rect6Ry :' + rect6Ry + ' rect6Rz :' + rect6Rz + ' rect6Sx :' + rect6Sx + ' rect6Sy :' + rect6Sy + ' rect6Sz :' + rect6Sz );
+                console.log( 'rect7Px :' + rect7Px + ' rect7Py :' + rect7Py + ' rect7Pz :' + rect7Pz + ' rect7Rx :' + rect7Rx + ' rect7Ry :' + rect7Ry + ' rect7Rz :' + rect7Rz + ' rect7Sx :' + rect7Sx + ' rect7Sy :' + rect7Sy + ' rect7Sz :' + rect7Sz );
+            });            
         }
 
         // アニメーション
@@ -140,13 +1165,9 @@
     // DOMContentLoadedで初期化
     document.addEventListener('DOMContentLoaded', () => {
         const webglScene = new WebGLScene();
-        
-        // スクロールアニメーションからのイベントをリッスン
-        document.addEventListener('webgl-scroll-update', (event: any) => {
-            const { progress } = event.detail;
-            webglScene.animationByScroll(progress);
-        });
     });
+
+
 </script>
 
 
@@ -156,8 +1177,8 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%;
-        z-index: -1;
+        height: 100vh;
+        z-index: 1;
     }
 
     #webgl-container canvas {
