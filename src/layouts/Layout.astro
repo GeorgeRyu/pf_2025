@@ -8,7 +8,9 @@ import Footer from '../components/Footer.astro';
 ---
 
 <!doctype html>
-<html lang="en">
+<html
+	lang="ja"
+>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
@@ -20,17 +22,21 @@ import Footer from '../components/Footer.astro';
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital@0;1&display=swap" rel="stylesheet">
+		
+		<script>
+			import { App } from '../script/app.js';
+			
+			document.addEventListener('DOMContentLoaded', () => {
+				new App();
+			});
+		</script>
 	</head>
-	<body>
+	<body x-data="PFApp()">
 		<Header />
 		<slot />
 		<Footer />
-
-		<script>
-			import { App } from '../script/app.js';
-			new App();
-		</script>
 	</body>
+	
 </html>
 
 <style lang="scss" is:global>

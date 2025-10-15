@@ -6,7 +6,6 @@ export class SoundSetting {
     soundNavToggle() {
         const navSound = document.getElementById('sound-setting'),
             bg = document.getElementById('bg-sound-setting'),
-            btnSoundSettings = document.querySelectorAll('[data-name="btn-sound-setting"]'),
             btnClose = document.getElementById('btn-close-sound-setting'),
             nameSound = document.getElementById('name-sound'),
             soundIndicator = document.getElementById('sound-indicator'),
@@ -18,15 +17,9 @@ export class SoundSetting {
             bgMenu = document.querySelector('[data-name="bg-menu"]'),
             menu = document.querySelector('[data-name="menu"]');
 
-
-        // メニューを開く
-        btnSoundSettings.forEach(btn => {
-            this.clickManager(btn, navSound, true);
-        });
-
         // メニューを閉じる
-        this.clickManager(btnClose, navSound, false);
-        this.clickManager(bg, navSound, false);
+        // this.clickManager(btnClose, navSound, false);
+        // this.clickManager(bg, navSound, false);
 
         this.clickManager(btnMenu, menu, true);
         this.clickManager(btnCloseMenu, menu, false);
@@ -46,8 +39,6 @@ export class SoundSetting {
             }
         });
     }
-
-
 
     openNav(nav) {
         nav.classList.remove('hidden');

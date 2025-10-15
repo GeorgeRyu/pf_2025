@@ -41,9 +41,9 @@ const playgrounds = [
 <main class="relative h-[750vh] bg-white01">
     <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-white02 mix-blend-difference z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
-		<div class="relative col-start-3 lg:hidden">
-			<div class="absolute top-0 right-[calc(100%+3px)] w-[2px] h-4/5 bg-black01"></div>
-			<div class="" data-name="name-area">Works</div>
+		<div class="relative col-start-3 justify-self-start lg:hidden">
+			<div class="active-nav-line absolute top-0 left-[calc(100%+3px)] w-[2px] h-4/5"></div>
+			<div class="" data-name="name-area"></div>
 		</div>
 
 		<div class="hidden lg:block col-start-4">
@@ -94,7 +94,7 @@ const playgrounds = [
 				</p>
 				<div class="grid grid-cols-1 gap-y-[1.2em] col-span-2 col-start-3 lg:col-span-2 lg:grid-cols-2 lg:gap-x-4 lg:col-start-5 lg:col-span-1">
 					<p data-name="kinetic-txt" class="">born in 1988 and worked as a designer in my twenties and entered the web industry as an engineer in my thirties. I like to think about design and direction.</p>
-					<p data-name="kinetic-txt" class="lg:mt-[3em] opacity-40">1988年生まれ。20代はデザイナー、30代からweb業界に入りエンジニアとして働いています。デザインや演出を考えるのが好きです。</p>
+					<p data-name="kinetic-txt" class="text-more-10 lg:mt-[3em] opacity-40">1988年生まれ。20代はデザイナー、30代からweb業界に入りエンジニアとして働いています。デザインや演出を考えるのが好きです。</p>
 				</div>
 			</div>
 

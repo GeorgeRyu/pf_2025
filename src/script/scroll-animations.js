@@ -1,18 +1,26 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import SplitText from 'gsap/SplitText';
 import ScrambleTextPlugin from 'gsap/ScrambleTextPlugin';
 import { log } from 'three/tsl';
 
 // GSAPプラグインを登録
-gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin);
+gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
 
 export class ScrollAnimations {
     constructor() {
         this.isPc = 1023 < window.innerWidth;
         // this.distance = this.isPc ? 1400 : 1000;
         this.distance = window.innerHeight;
-        this.chars = this.getRandomElement(["■.▪▌▐▬", "_ - .", "//_", "0123456789 -_"]);
+        this.chars = this.getRandomElement(
+            [
+                "■.▪▌▐▬",
+                "_ - .",
+                "//_",
+                "0123456789 -_",
+                "▲△▼▽◇■□◯●★☆✦✧◆◇",
+                "🔴🟡🟢🔵🟣🟤🟧🟨🟠🟦🟪🟥",
+            ]
+        );
         this.lenis = null;
 
         this.init();
@@ -55,17 +63,21 @@ export class ScrollAnimations {
     }
 
     setupScrollAnimations() {
-        const eachArea = ['works-info', 'about-area', 'photos-area', 'playground-area'];
-        // const eachArea = ['works-info'];
+        const eachArea = ['works-info', 'about-area', 'photos-area', 'playground-area'],
+            nameArea = document.querySelector('[data-name="name-area"]'),
+            eachAreaTitles = ['Works', 'About', 'Photos', 'Playground'];
 
-        
+        nameArea.textContent = eachAreaTitles[0];
+
         eachArea.forEach((area, index) => {
             const targetArea = document.querySelector(`[data-name="${area}"]`),
                 areaItems = targetArea.querySelectorAll(`[data-name="kinetic-txt"]`),
                 originalTexts = Array.from(areaItems).map(item => item.textContent),
                 tlShowTxt = gsap.timeline({paused: true}),
-                tlHideTxt = gsap.timeline({paused: true});
-            
+                tlHideTxt = gsap.timeline({paused: true}),
+                tlShowTxtSpTitle = gsap.timeline({paused: true}),
+                mm = gsap.matchMedia();
+
             let dis = this.distance,
                 pStart = '',
                 pEnd = '',
@@ -80,13 +92,14 @@ export class ScrollAnimations {
                 pEnd = `${dis} center`;
                 enterFunc = () => tlHideTxt.restart();
                 leaveFunc = '';
-                enterBackFunc = () => tlShowTxt.restart();
+                enterBackFunc = () => {
+                    tlShowTxt.restart();
+                    mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
+                };
                 leaveBackFunc = '';
                 markers = false;
 
             }else {
-
-                // 1 = 2
                 dis = (2 * index) * this.distance;
                 
                 areaItems.forEach(item => {
@@ -96,7 +109,10 @@ export class ScrollAnimations {
                 if(index === 3) {
                     pStart = `${dis} center`;
                     pEnd = `${dis} center`;
-                    enterFunc = () => tlShowTxt.restart();
+                    enterFunc = () => {
+                        tlShowTxt.restart();
+                        mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
+                    };
                     leaveFunc = () => '';
                     enterBackFunc = () => tlShowTxt.reverse();
                     leaveBackFunc = () => '';
@@ -105,14 +121,23 @@ export class ScrollAnimations {
                 }else {
                     pStart = `${dis} center`;
                     pEnd = `${dis + this.distance} center`;
-                    enterFunc = () => tlShowTxt.restart();
-                    leaveFunc = () => tlShowTxt.reverse();
-                    enterBackFunc = () => tlShowTxt.restart();
-                    leaveBackFunc = () => tlShowTxt.reverse();
+                    enterFunc = () => {
+                        tlShowTxt.restart();
+                        mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
+                    };
+                    leaveFunc = () => {
+                        tlShowTxt.reverse();
+                    };
+                    enterBackFunc = () => {
+                        tlShowTxt.restart();
+                        mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
+                    };
+                    leaveBackFunc = () => {
+                        tlShowTxt.reverse();
+                    };
                     markers = false;
                 }
             }
-
 
             ScrollTrigger.create({
                 trigger: document.querySelector('body'),
@@ -160,6 +185,18 @@ export class ScrollAnimations {
                     from: 'end',
                 },
             });
+
+            tlShowTxtSpTitle.to(nameArea, {
+                duration: 0.6,
+                scrambleText: {
+                    text: eachAreaTitles[index], // 各要素の元のテキストを使用
+                    chars: this.chars,
+                    revealDelay: 0.01,
+                    speed: 0.01,
+                    tweenLength: true
+                },
+                ease: "none",
+            });
         });
 
         // this.worksInOut();
@@ -177,7 +214,6 @@ export class ScrollAnimations {
             scrambleText: {
                 text: (index) => originalTexts[index], // 各要素の元のテキストを使用
                 chars: this.chars,
-                // chars: "■▪▌▐▬-",
                 revealDelay: 0.01,
                 speed: 0.01
             },

@@ -1,3 +1,22 @@
 body {
 
+    .active-nav-line {
+        animation: active-nav-line 1s infinite;
+        background-color: var(--c-gray-01);
+    }
+}
+
+@keyframes active-nav-line {
+    0% {
+        opacity: 100%
+    }
+    50% {
+        opacity: 100%;
+    }
+    51% {
+        opacity: 0%;
+    }
+    100% {
+        opacity: 0%;
+    }
 }

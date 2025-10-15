@@ -20,11 +20,8 @@ if (!project) {
 <Layout title={project.title}>
     <div data-name="project-page" class="w-project-page fixed top-0 left-0 w-auto h-full grid grid-cols-4 gap-x-[8px] items-start ml-s-16-60 bg-black01 text-white01 z-50 lg:grid-cols-5 lg:gap-x-4 lg:pr-s-16-60">
       <a href="/" data-name="nav-project" class="nav-single fixed bottom-0 left-0 flex justify-center items-center gap-x-3 [writing-mode:vertical-lr] bg-black01 h-[140px] w-more-24 z-50 lg:relative lg:bottom-auto lg:left-auto lg:col-start-1 lg:col-span-1 lg:justify-self-start lg:w-auto lg:h-auto lg:mt-more-96 lg:ml-[2em] lg:[writing-mode:horizontal-tb]">
-        <span class="arrow relative w-[7px] h-[7px] rotate-45">
-          <span class="arrow-line-t absolute top-[3px] left-0 w-full h-[1px] bg-white01"></span>
-          <span class="arrow-line-b absolute top-0 left-[3px] w-[1px] h-full bg-white01"></span>
-        </span>
-        <span data-name="text-close" class="text-nowrap">Close</span>
+
+        <span data-name="text-close" class="text-nowrap">close</span>
       </a>
       <ProjectContent project={project} classNameWrapper="col-span-4 col-start-1 h-full pt-16 pl-s-16-60 overflow-y-scroll lg:pt-more-96 lg:pb-more-200 lg:col-start-2 lg:col-span-4" />
     </div>

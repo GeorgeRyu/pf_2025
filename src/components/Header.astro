@@ -13,9 +13,11 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
     <ColorThemeBtn classNameWrapper="hidden lg:block lg:col-start-6 lg:place-self-end lg:self-start" />
 </header>
 
-<nav id="sound-setting" class="fixed top-0 left-0 hidden grid-cols-1 gap-y-4 w-full h-auto text-white01 bg-black01 py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-auto lg:left-auto lg:right-s-20-60 lg:bottom-more-20 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-40 lg:pb-more-20">
-    <div id="bg-sound-setting" class="absolute top-0 left-0 w-full h-screen z-10 lg:top-auto lg:left-auto lg:-right-s-20-60 lg:-bottom-more-20 lg:w-screen"></div>
-    <div id="btn-close-sound-setting" class="relative z-20 ml-auto cursor-pointer lg:row-start-2">close</div>
+<nav x-show="isSoundMenuOpen" id="sound-setting" class="fixed top-0 left-0 grid-cols-1 gap-y-4 w-full h-auto text-white01 bg-black01 py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-auto lg:left-auto lg:right-s-20-60 lg:bottom-more-20 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-40 lg:pb-more-20">
+    <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="bg-sound-setting" class="absolute top-0 left-0 w-full h-screen z-10 lg:top-auto lg:left-auto lg:-right-s-20-60 lg:-bottom-more-20 lg:w-screen"></div>
+    <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="btn-close-sound-setting" class="relative flex justify-end z-20 ml-auto cursor-pointer lg:row-start-2">
+        <span>close</span>
+    </div>
     <div class="relative z-20 grid grid-cols-4 gap-x-[8px] col-span-3 lg:row-start-1">
         <div class="grid grid-cols-1 gap-y-4 col-span-3">
             <div class="w-full h-auto">
@@ -71,13 +73,13 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
     <div class="relative grid grid-cols-1 gap-y-20 z-20">
         <div class="grid gap-y-8">
             <div class="grid grid-cols-1">
-                <a href="#works">Works</a>
-                <a href="#about">About</a>
+                <a data-name="anchor-link" href="#works">Works</a>
+                <a data-name="anchor-link" href="#about">About</a>
             </div>
             <div class="grid grid-cols-1">
                 <p class="opacity-40">private projects</p>
-                <a href="#Photos">Photos</a>
-                <a href="#playground">Playground</a>
+                <a data-name="anchor-link" href="#Photos">Photos</a>
+                <a data-name="anchor-link" href="#playground">Playground</a>
             </div>
         </div>
         <div class="" data-name="btn-close">close</div>
