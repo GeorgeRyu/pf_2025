@@ -3,13 +3,20 @@ import { defineConfig } from 'astro/config';
 
 import tailwindcss from '@tailwindcss/vite';
 
+import vercel from '@astrojs/vercel';
+
 // https://astro.build/config
 export default defineConfig({
-  output: 'static', // SSGを基本とする
+  // SSGを基本とする
+  output: 'static',
+
   devToolbar: {
     enabled: false
   },
+
   vite: {
     plugins: [tailwindcss()]
-  }
+  },
+
+  adapter: vercel()
 });
