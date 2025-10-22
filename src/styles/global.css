@@ -3,6 +3,7 @@
 
 @theme {
     --color-black01: var(--c-black-01);
+    --color-black02: var(--c-black-02);
     --color-gray01: var(--c-gray-01);
     --color-gray02: var(--c-gray-02);
     --color-white01: var(--c-white-01);

@@ -7,11 +7,13 @@ const projects = await getProjects();
 const navItems = [
 	{
 		name: "Works",
-		class: ""
+		class: "",
+		distanceNumber: 1
 	},
 	{
 		name: "About",
-		class: ""
+		class: "",
+		distanceNumber: 2
 	},
 	{
 		name: "Private Projects",
@@ -19,11 +21,13 @@ const navItems = [
 	},
 	{
 		name: "Photos",
-		class: ""
+		class: "",
+		distanceNumber: 3
 	},
 	{
 		name: "Playground",
-		class: ""
+		class: "",
+		distanceNumber: 4
 	}
 ];
 
@@ -42,14 +46,14 @@ const playgrounds = [
     <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-white02 mix-blend-difference z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 justify-self-start lg:hidden">
-			<div class="active-nav-line absolute top-0 left-[calc(100%+3px)] w-[2px] h-4/5"></div>
-			<div class="" data-name="name-area"></div>
+			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
+			<div class=" leading-snug bg-black02" data-name="name-area"></div>
 		</div>
 
 		<div class="hidden lg:block col-start-4">
 			<div class="grid grid-cols-1">
-				{navItems.map((item, index) => (
-					<a href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`} class={`relative ${item.class}`}>
+				{navItems.map((item) => (
+					<a x-on:click={`anchorLink(${item.distanceNumber}, true)`} href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`} class={`relative ${item.class}`}>
 						<div class="absolute top-0 right-[calc(100%+3px)] w-[2px] h-4/5 bg-black01 hidden"></div>
 						{item.name}
 					</a>

@@ -31,7 +31,10 @@ import Footer from '../components/Footer.astro';
 			});
 		</script>
 	</head>
-	<body x-data="PFApp()">
+	<body 
+		x-data="PFApp()"
+		x-init="initLenis()"
+	>
 		<Header />
 		<slot />
 		<Footer />
