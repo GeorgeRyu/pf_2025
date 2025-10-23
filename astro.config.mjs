@@ -8,10 +8,7 @@ import vercel from '@astrojs/vercel';
 // https://astro.build/config
 export default defineConfig({
   // SSGを基本とする
-  // output: 'static',
-
-  // SSRを基本とする
-  output: 'server',
+  output: 'static',
 
   devToolbar: {
     enabled: false
