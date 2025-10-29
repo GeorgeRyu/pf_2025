@@ -1,5 +1,6 @@
 import { ScrollAnimations } from "./scroll-animations.js";
 import { LenisSmoothScroll } from "./lenis-smooth-scroll.js";
+import { BasicAuth } from "./basic-auth.js";
 import Alpine from "alpinejs";
 
 // PFApp関数をグローバルに定義（Alpine.jsの初期化前に実行）
@@ -72,6 +73,17 @@ export class App {
     }
 
     app() {
+        // vercel.appドメインまたはポート4321の場合のみベーシック認証を実行
+        if (typeof window !== 'undefined') {
+            const isVercelApp = window.location.hostname.includes('.vercel.app');
+            
+            if (isVercelApp) {
+                console.log('Basic auth check:', { isVercelApp, hostname: window.location.hostname, port: window.location.port });
+                const basicAuth = new BasicAuth();
+                basicAuth.checkAuth();
+            }
+        }
+
         // グローバルにアクセス可能にする
         window.app = this;
         window.Alpine = Alpine;

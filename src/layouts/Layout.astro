@@ -5,7 +5,6 @@ import '../styles/home.scss'
 
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import AuthGuard from '../components/AuthGuard.astro';
 ---
 
 <!doctype html>
@@ -36,7 +35,6 @@ import AuthGuard from '../components/AuthGuard.astro';
 		x-data="PFApp()"
 		x-init="initLenis()"
 	>
-		<AuthGuard />
 		<Header />
 		<slot />
 		<Footer />
