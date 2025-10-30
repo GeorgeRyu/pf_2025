@@ -5,8 +5,8 @@
 export class BasicAuth {
   constructor() {
     // 環境変数から認証情報を取得（AstroのPUBLIC_プレフィックスを使用）
-    this.username = import.meta.env.PUBLIC_BASIC_AUTH_USER || '';
-    this.password = import.meta.env.PUBLIC_BASIC_AUTH_PASSWORD || '';
+    this.username = import.meta.env.BASIC_USER || '';
+    this.password = import.meta.env.BASIC_PASS || '';
     this.isEnabled = this.username && this.password;
     
     // Vercelのプレビュー環境かどうかを判定
