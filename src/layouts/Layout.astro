@@ -34,6 +34,7 @@ import Footer from '../components/Footer.astro';
 	<body 
 		x-data="PFApp()"
 		x-init="initLenis()"
+		x-show="isDevelop()"
 	>
 		<Header />
 		<slot />
