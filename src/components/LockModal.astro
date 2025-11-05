@@ -1,0 +1,19 @@
+---
+
+---
+
+<div 
+    class="lock-modal fixed top-0 left-0 flex items-center justify-center w-full h-full bg-white01 z-[9999]"
+    x-data="{ isVisible: true, inputSequence: '' }"
+    x-init="
+        const targetWord = 'george';
+        $watch('inputSequence', (value) => {
+            if (value.toLowerCase() === targetWord) {
+                isVisible = false;
+            }
+        });
+    "
+    x-show="isVisible"
+>
+    <input class="h-[2.4em] w-[300px] border-black01  border rounded-md text-black01 text-center focus:outline-none" type="text" x-model="inputSequence" placeholder="ENTER THE PASSWORD" />
+</div>
