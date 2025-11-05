@@ -8,15 +8,6 @@ window.PFApp = function() {
         isSoundMenuOpen: false,
         isColorThemeMenuOpen: false,
         isMenuOpen: false,
-        isDevelop() {
-            const currentUrl = window.location.href;
-            const isUnderDevelopLive = currentUrl.includes('vercel.app');
-            const enableView = currentUrl.includes('#debug');
-            const isUnderDevelop = isUnderDevelopLive && !enableView;
-
-            return !isUnderDevelop;
-
-        },
 
         // 初期化時にlenisの参照を取得
         initLenis() {
