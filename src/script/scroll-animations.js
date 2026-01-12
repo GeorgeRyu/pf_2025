@@ -10,7 +10,7 @@ export class ScrollAnimations {
     constructor() {
         this.isPc = 1023 < window.innerWidth;
         // this.distance = this.isPc ? 1400 : 1000;
-        this.distance = window.innerHeight;
+        this.distance = window.innerHeight * 1.5;
         this.chars = this.getRandomElement(
             [
                 "■.▪▌▐▬",
@@ -91,7 +91,7 @@ export class ScrollAnimations {
                 pStart = `${dis} center`;
                 pEnd = `${dis} center`;
                 enterFunc = () => tlHideTxt.restart();
-                leaveFunc = '';
+                leaveFunc = () => '';
                 enterBackFunc = () => {
                     tlShowTxt.restart();
                     mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
@@ -115,7 +115,7 @@ export class ScrollAnimations {
                     };
                     leaveFunc = () => '';
                     enterBackFunc = () => tlShowTxt.reverse();
-                    leaveBackFunc = () => '';
+                    leaveBackFunc = () => tlHideTxt.restart();;
                     markers = false;
                     
                 }else {
@@ -126,14 +126,16 @@ export class ScrollAnimations {
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
                     leaveFunc = () => {
-                        tlShowTxt.reverse();
+                        // tlShowTxt.reverse();
+                        tlHideTxt.restart();
                     };
                     enterBackFunc = () => {
                         tlShowTxt.restart();
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
                     leaveBackFunc = () => {
-                        tlShowTxt.reverse();
+                        // tlShowTxt.reverse();
+                        tlHideTxt.restart();
                     };
                     markers = false;
                 }
@@ -162,10 +164,11 @@ export class ScrollAnimations {
                 ease: "none",
                 stagger: 0.035,
                 onStart: () => {
-                    // console.log('onStart tlShowTxt');
+                    // console.log('ON START! area : ' + area);
+                    // console.log('targetArea : ' + targetArea);
                     if( targetArea.classList.contains('hidden') ) {
                         targetArea.classList.remove('hidden');
-                        targetArea.classList.add('grid');
+                        targetArea.classList.add('grid', 'z-10');
                     }
                 },
             });
@@ -183,6 +186,10 @@ export class ScrollAnimations {
                 stagger: {
                     amount: 0.035,
                     from: 'end',
+                },
+                onComplete: () => {
+                    targetArea.classList.remove('grid', 'z-10');
+                    targetArea.classList.add('hidden');
                 },
             });
 
