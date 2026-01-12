@@ -9,11 +9,13 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
         <p>WEB DEVELOPER</p>
     </div>
 
-    <SoundBtn classNameWrapper="lg:hidden" />
-    <ColorThemeBtn classNameWrapper="hidden lg:block lg:col-start-6 lg:place-self-end lg:self-start" />
+    <div class="lg:grid lg:gap-y-3 lg:col-start-6 lg:self-start">
+        <ColorThemeBtn classNameWrapper="hidden lg:block " />
+        <SoundBtn classNameWrapper="relative z-50" />
+    </div>
 </header>
 
-<nav x-show="isSoundMenuOpen" id="sound-setting" class="fixed top-0 left-0 grid-cols-1 gap-y-4 w-full h-auto text-white01 bg-black01 py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-auto lg:left-auto lg:right-s-20-60 lg:bottom-more-20 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-40 lg:pb-more-20">
+<nav x-show="isSoundMenuOpen" id="sound-setting" class="fixed top-0 left-0 grid-cols-1 gap-y-4 w-full h-auto text-white01 bg-black01 py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-more-40 lg:left-auto lg:right-s-20-60 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-20 lg:pb-more-20">
     <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="bg-sound-setting" class="absolute top-0 left-0 w-full h-screen z-10 lg:top-auto lg:left-auto lg:-right-s-20-60 lg:-bottom-more-20 lg:w-screen"></div>
     <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="btn-close-sound-setting" class="relative flex justify-end z-20 ml-auto cursor-pointer lg:row-start-2">
         <span>close</span>
