@@ -361,7 +361,7 @@ export class WebGLSceneController {
         const worksInfo = document.querySelector('[data-name="works-info"]');
         if (!worksInfo) return;
 
-        let items = worksInfo.querySelectorAll('.project-modal-btn');
+        let items = worksInfo.querySelectorAll('.js-project-modal-btn');
         if (!items || items.length === 0) {
             items = worksInfo.querySelectorAll('.project-link');
         }

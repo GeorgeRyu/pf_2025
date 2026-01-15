@@ -19,6 +19,7 @@
     --spacing-more-4: var(--s-more-4);
     --spacing-more-12: var(--s-more-12);
     --spacing-more-15: var(--s-more-15);
+    --spacing-more-16: var(--s-more-16);
     --spacing-more-20: var(--s-more-20);
     --spacing-more-24: var(--s-more-24);
     --spacing-more-30: var(--s-more-30);
@@ -67,4 +68,23 @@
     --text-f-17-19: clamp(1.7rem, 0.336vw + 1.356rem, 1.9rem);
     --text-f-21-24: clamp(2.0rem, 3.5vw, 2.4rem);
     --text-f-48-52: clamp(4.8rem, 0.447vw + 4.341rem, 5.2rem);
+}
+
+/* modal (project) scrollbar */
+[data-name="modal-container"] article {
+    scrollbar-color: var(--color-white01) transparent; /* Firefox */
+    scrollbar-width: thin; /* Firefox: closest to 3px */
+    -webkit-overflow-scrolling: touch; /* iOS: momentum scroll */
+    overscroll-behavior: contain; /* prevent scroll chaining */
+    touch-action: pan-y;
+}
+[data-name="modal-container"] article::-webkit-scrollbar {
+    width: 2px;
+}
+[data-name="modal-container"] article::-webkit-scrollbar-track {
+    background: transparent;
+}
+[data-name="modal-container"] article::-webkit-scrollbar-thumb {
+    background: var(--color-white01);
+    border-radius: 0;
 }

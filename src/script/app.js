@@ -1,5 +1,6 @@
 import { ScrollAnimations } from "./scroll-animations.js";
 import { LenisSmoothScroll } from "./lenis-smooth-scroll.js";
+import { ProjectModal } from "./project-modal.js";
 import Alpine from "alpinejs";
 
 // PFApp関数をグローバルに定義（Alpine.jsの初期化前に実行）
@@ -86,6 +87,7 @@ export class App {
 
         // Lenisスムーススクロールを初期化
         this.lenisSmoothScroll = new LenisSmoothScroll();
+        this.projectModal = new ProjectModal();
         
         new ScrollAnimations();
     }

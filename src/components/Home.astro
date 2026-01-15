@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import { getProjects } from '../lib/projects.js';
 import WebGLScene from './webgl/WebGLScene.astro';
 
@@ -44,6 +45,7 @@ const playgrounds = [
 
 <main class="relative h-[1000vh] bg-white01">
     <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
+		
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-white02 mix-blend-difference z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 justify-self-start lg:hidden">
 			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
@@ -64,22 +66,11 @@ const playgrounds = [
 		<div class="relative col-span-4 lg:col-span-6">
 			<!-- works -->
 			<div data-name="works-info" class="absolute top-0 left-0 w-full h-auto grid grid-cols-4 gap-x-[8px] gap-y-8 z-10 lg:grid-cols-6 lg:gap-x-4">
-				<div class=" col-span-2 col-start-3 grid grid-cols-1 gap-y-[0.7em] lg:col-start-5 lg:mt-more-60">
-					{projects.map(project => (
-						<a
-							href={`/project/${project.slug}`}
-							class="project-link"
-							data-name="kinetic-txt"
-							data-text={project.title}
-						>
-							{project.title}
-						</a>
-						
-						<!-- モーダルリンク（JS有効時） -->
+				<div class="col-span-2 col-start-3 grid grid-cols-1 gap-y-[0.5em] lg:col-start-5 lg:mt-more-60">
+					{projects.map(project => (						
 						<button 
-							class="project-modal-btn text-left leading-tight cursor-pointer" 
+							class="js-project-modal-btn text-left leading-tight cursor-pointer" 
 							data-project-slug={project.slug}
-							style="display: none;"
 							data-name="kinetic-txt"
 							data-text={project.title}
 						>
@@ -125,141 +116,113 @@ const playgrounds = [
 			</div>			
 		</div>
 	</div>
+
 	<!-- モーダルコンテナ -->
-	<div id="modal-container"></div>	
-</main>
+	<div data-name="modal-container" class="hidden fixed top-0 left-0 w-full h-full z-[9999] lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*4+3rem+var(--s-20-60))]">
+		<div data-name="btn-close" class="absolute left-0 bottom-0 h-more-200 text-more-12 bg-black01 z-30 flex flex-col gap-y-3 items-center justify-center lg:hidden">
+			<span class="relative w-[9px] h-[9px] block">
+				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 rotate-45"></span>
+				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 -rotate-45"></span>
+			</span>
+			<span class="text-more-12 text-white01 [writing-mode:vertical-lr]">close</span>
+		</div>
 
-<script>
-	// プログレッシブエンハンスメント
-	document.addEventListener('DOMContentLoaded', () => {
-		// JSが有効な場合、モーダルボタンを表示
-		const modalBtns = document.querySelectorAll('.project-modal-btn') as NodeListOf<HTMLElement>;
-		const normalLinks = document.querySelectorAll('.project-link') as NodeListOf<HTMLElement>;
-		
-		modalBtns.forEach((btn, index) => {
-			btn.style.display = 'block';
-			normalLinks[index].style.display = 'none';
-			
-			btn.addEventListener('click', () => {
-				const slug = btn.dataset.projectSlug;
-				if (slug) {
-					openProjectModal(slug);
-				}
-			});
-		});
+		{projects.map(project => (
+		<article data-name={project.slug} class="hidden absolute top-0 left-0 w-auto h-full ml-more-16 pl-more-12 bg-black01 text-white01 overflow-y-scroll lg:col-span-5 lg:col-start-2 lg:pt-more-40 lg:px-4 lg:ml-0">
+			<div data-name="btn-close" class="hidden sticky top-0 right-0 cursor-pointer w-fit ml-auto bg-black01 py-0.5 text-more-12 justify-end gap-x-3 items-center lg:flex">
+				<span class="relative w-[9px] h-[9px] block">
+					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 rotate-45"></span>
+					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 -rotate-45"></span>
+				</span>
+				<span class="text-more-12 text-white01">close</span>
+			</div>
 
-		// ブラウザの戻る/進むボタン対応
-		window.addEventListener('popstate', handlePopState);
-		
-		// 初期ロード時のURL確認
-		handlePopState();
-	});
+			<div class="lg:mt-more-20">
+				<header>
+					{ project.moviePc && (
+						<div class="col-span-2 bg-gray01">
+						<video src={project.moviePc} autoplay loop muted playsinline class="w-full h-auto"></video>
+						</div>
+					)}
 
-	async function openProjectModal(slug: string) {
-		// URLを更新（履歴に追加）
-		history.pushState({ modal: true, slug }, '', `/project/${slug}?modal=1`);
-		
-		// モーダルコンテンツを取得
-		try {
-			const response = await fetch(`/project/${slug}?partial=1`);
-			const html = await response.text();
-			
-			// DOMパーサーを使用してHTMLを解析
-			const parser = new DOMParser();
-			const doc = parser.parseFromString(html, 'text/html');
-			
-			// data-name="project-page"の要素を取得
-			const projectPageElement = doc.querySelector('[data-name="project-page"]');
-			
-			if (projectPageElement) {
-				// 要素のouterHTMLを取得（要素全体を含む）
-				const projectPageHtml = projectPageElement.outerHTML;
-				showModal(projectPageHtml);
-			} else {
-				// 要素が見つからない場合はフォールバック
-				console.error('Project page element not found');
-				window.location.href = `/project/${slug}`;
-			}
-			
-		} catch (error) {
-			console.error('Error fetching project:', error);
-			// フォールバック：通常ページに遷移
-			window.location.href = `/project/${slug}`;
-		}
-	}
+					<div class="grid grid-cols-1 gap-y-more-40 mt-more-20 lg:grid-cols-2 lg:items-start lg:mt-[3em]">
+						<div class="grid grid-cols-1 gap-y-[1.4em] lg:gap-y-[3em]">
+							<h3 class="">{project.title}</h3>
+							<ul class="grid grid-cols-1 gap-y-[0.4em]">
+								<li class="flex items-center gap-x-3">
+									<p class="text-gray01">Role</p>
+									<p>{project.role}</p>
+								</li>
+								<li class="flex items-center gap-x-3">
+									<p class="text-gray01">Date</p>
+									<p>{project.date}</p>
+								</li>
+								<li>
+									<a data-name="link-view-project" class="underline" href={project.url} target="_blank" rel="noopener noreferrer">View Project</a>
+								</li>
+							</ul>
+						</div>
+						<div class="grid grid-cols-1 gap-y-[1em]">
+							<p>{project.description}</p>
+							<p>{project.descriptionEn}</p>
+						</div>
+					</div>
+				</header>
 
-	function showModal(content: string) {
-		const container = document.getElementById('modal-container');
-		if (!container) return;
-		
-		container.innerHTML = `
-			<div class="modal-overlay">
-				<div class="modal-content">
-				${content}
+				<div class="grid grid-cols-2 gap-x-[8px] gap-y-[1em] mt-16 lg:mt-[6em] lg:gap-y-[2em] lg:gap-x-[1em]">
+					{ project.hero && (
+						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
+							<Image src={project.hero || "/placeholder.svg"} alt={project.title} width={1600} height={900} class="w-full h-full object-cover"></Image>
+						</div>
+					)}
+					{ project.movieMotion01 && (
+						<div class="col-span-1 bg-gray01 aspect-square overflow-hidden">
+							<video src={project.movieMotion01} autoplay loop muted playsinline class="w-full h-full object-cover"></video>
+						</div>
+					)}
+					{ project.movieMotion02 && (
+						<div class="col-span-1 bg-gray01 aspect-square overflow-hidden">
+							<video src={project.movieMotion02} autoplay loop muted playsinline class="w-full h-full object-cover"></video>
+						</div>
+					)}
+					{ project.imagePc01 && (
+						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
+							<Image src={project.imagePc01} alt='pc design' width={1600} height={900} class="w-full h-full object-cover"></Image>
+						</div>
+					)}
+					{ project.imagePc02 && (
+						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
+							<Image src={project.imagePc02} alt='pc design' width={1600} height={900} class="w-full h-full object-cover"></Image>
+						</div>
+					)}
+					<div class="col-span-2 grid grid-cols-3 gap-x-[8px] lg:gap-x-[1em]">
+						{ project.imageSp01 && (
+							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
+								<Image src={project.imageSp01} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
+							</div>
+						)}
+						{ project.imageSp02 && (
+							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
+								<Image src={project.imageSp02} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
+							</div>
+						)}
+						{ project.imageSp03 && (
+							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
+								<Image src={project.imageSp03} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
+							</div>
+						)}
+					</div>
+				</div>
+
+				<div class="prev-next flex justify-between items-center h-more-200 lg:mt-more-100">
+					<a href="" class="">{'< prev'}</a>
+					<a href="" class="">{'next >'}</a>
 				</div>
 			</div>
-		`;
-		
-		// モーダル表示
-		container.style.display = 'block';
-		
-		// イベントリスナー
-		const overlay = container.querySelector('.modal-overlay') as HTMLElement;
-		const closeBtn = container.querySelector('.modal-close') as HTMLElement;
-		const backToHome = container.querySelector('[data-name="back-to-home"]') as HTMLElement;
-
-		if (overlay) {
-			overlay.addEventListener('click', (e) => {
-				if (e.target === overlay) closeModal();
-			});
-		}
-		
-		if (closeBtn) {
-			closeBtn.addEventListener('click', closeModal);
-		}
-		
-		if (backToHome) {
-			backToHome.addEventListener('click', (e) => {
-				e.preventDefault();
-				closeModal();
-			});
-		}
-		
-		// ESCキーで閉じる
-		document.addEventListener('keydown', handleEscKey);
-	}
-
-	function closeModal() {
-		const container = document.getElementById('modal-container');
-		if (!container) return;
-		
-		container.style.display = 'none';
-		container.innerHTML = '';
-		// document.body.style.overflow = '';
-		
-		// URLを戻す
-		history.pushState({}, '', '/');
-		
-		document.removeEventListener('keydown', handleEscKey);
-	}
-
-	function handleEscKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') closeModal();
-	}
-
-	function handlePopState() {
-		const url = new URL(window.location.href);
-		const isModal = url.searchParams.has('modal');
-		const slug = url.pathname.match(/\/project\/(.+)/)?.[1];
-		
-		if (isModal && slug) {
-			openProjectModal(slug);
-		} else {
-			closeModal();
-		}
-	}
-</script>
-
+		</article>
+	))}
+	</div>	
+</main>
 
 <style lang="scss" is:global>
 	.modal-overlay {
@@ -294,6 +257,7 @@ const playgrounds = [
 	}
 
 	#modal-container {
-		display: none;
+		// display: none;
+
 	}
 </style>
