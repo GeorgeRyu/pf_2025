@@ -6,32 +6,35 @@ export class ProjectModal {
     if (!this.modalContainer) return;
 
     this.articles = Array.from(this.modalContainer.querySelectorAll('article[data-name]'));
-    this.slugs = this.articles
-      .map((a) => a.dataset.name)
-      .filter((v) => typeof v === 'string' && v.length > 0);
+    this.articleBySlug = new Map(
+      this.articles
+        .map((a) => [a.dataset.name, a])
+        .filter(([slug]) => typeof slug === 'string' && slug.length > 0),
+    );
+    this.slugs = Array.from(this.articleBySlug.keys());
 
     this.currentSlug = null;
     this.isOpen = false;
     this.isScrollLocked = false;
+    this.isIOS = this.detectIOS();
 
-    // scroll lock state
-    this.pageScrollY = 0;
-    this.prevBodyPosition = '';
-    this.prevBodyTop = '';
-    this.prevBodyLeft = '';
-    this.prevBodyRight = '';
-    this.prevBodyWidth = '';
-    this.prevHtmlOverflow = '';
-    this.prevBodyOverflow = '';
+    // scroll lock state (restore snapshot)
+    this.restoreScroll = null;
 
     // handlers
     this.onWheelCapture = this.onWheelCapture.bind(this);
     this.onKeyDownCapture = this.onKeyDownCapture.bind(this);
-    this.onTouchStartCapture = this.onTouchStartCapture.bind(this);
     this.onTouchMoveCapture = this.onTouchMoveCapture.bind(this);
-    this.lastTouchY = 0;
 
     this.bind();
+  }
+
+  detectIOS() {
+    // iPhone/iPad/iPod + iPadOS(=MacIntel + touch)
+    const ua = navigator.userAgent || '';
+    const isAppleMobile = /iPad|iPhone|iPod/.test(ua);
+    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    return isAppleMobile || isIPadOS;
   }
 
   bind() {
@@ -82,9 +85,9 @@ export class ProjectModal {
       this.isOpen = true;
     }
 
-    this.showModalContainer();
+    this.setVisible(this.modalContainer, true);
     this.hideAllArticles();
-    this.showArticle(target);
+    this.setVisible(target, true);
     this.resetArticleScroll(target);
     this.focusArticle(target);
 
@@ -95,7 +98,7 @@ export class ProjectModal {
   close() {
     if (!this.isOpen) return;
     this.hideAllArticles();
-    this.hideModalContainer();
+    this.setVisible(this.modalContainer, false);
     this.currentSlug = null;
     this.isOpen = false;
     this.unlockPageScroll();
@@ -142,36 +145,23 @@ export class ProjectModal {
   }
 
   getArticle(slug) {
-    // CSS.escape が無い環境もあるのでフォールバック
-    const safe = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(slug) : slug;
-    return this.modalContainer.querySelector(`article[data-name="${safe}"]`);
+    return this.articleBySlug.get(slug) || null;
   }
 
   getCurrentArticle() {
-    if (!this.currentSlug) return null;
-    return this.getArticle(this.currentSlug);
-  }
-
-  showModalContainer() {
-    this.modalContainer.classList.remove('hidden');
-    this.modalContainer.classList.add('block');
-  }
-
-  hideModalContainer() {
-    this.modalContainer.classList.remove('block');
-    this.modalContainer.classList.add('hidden');
+    return this.currentSlug ? this.getArticle(this.currentSlug) : null;
   }
 
   hideAllArticles() {
     this.articles.forEach((a) => {
-      a.classList.remove('block');
-      a.classList.add('hidden');
+      this.setVisible(a, false);
     });
   }
 
-  showArticle(articleEl) {
-    articleEl.classList.remove('hidden');
-    articleEl.classList.add('block');
+  setVisible(el, visible) {
+    if (!el) return;
+    el.classList.toggle('hidden', !visible);
+    el.classList.toggle('block', visible);
   }
 
   resetArticleScroll(articleEl) {
@@ -197,62 +187,75 @@ export class ProjectModal {
 
   lockPageScroll() {
     if (this.isScrollLocked) return;
+    const html = document.documentElement;
+    const body = document.body;
+
     // Lenis があれば停止（ページ側を動かさない）
-    if (window.lenis && typeof window.lenis.stop === 'function') {
+    if (!this.isIOS && window.lenis && typeof window.lenis.stop === 'function') {
       window.lenis.stop();
     }
 
     // 位置固定でページスクロールを完全に止める（iOS含む）
-    this.pageScrollY = window.scrollY || 0;
-    this.prevBodyPosition = document.body.style.position;
-    this.prevBodyTop = document.body.style.top;
-    this.prevBodyLeft = document.body.style.left;
-    this.prevBodyRight = document.body.style.right;
-    this.prevBodyWidth = document.body.style.width;
-    this.prevHtmlOverflow = document.documentElement.style.overflow;
-    this.prevBodyOverflow = document.body.style.overflow;
+    const scrollY = window.scrollY || 0;
+    this.restoreScroll = {
+      scrollY,
+      htmlOverflow: html.style.overflow,
+      body: {
+        overflow: body.style.overflow,
+        position: body.style.position,
+        top: body.style.top,
+        left: body.style.left,
+        right: body.style.right,
+        width: body.style.width,
+      },
+    };
 
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${this.pageScrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
 
     // PC: wheel を確実にモーダル記事へ流す（Lenisに奪われないよう capture + preventDefault）
     window.addEventListener('wheel', this.onWheelCapture, { capture: true, passive: false });
     window.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
     // Mobile: touch はモーダル領域だけ監視して、記事外タッチで背景へ伝播しないようにする
-    this.modalContainer.addEventListener('touchstart', this.onTouchStartCapture, { capture: true, passive: true });
     this.modalContainer.addEventListener('touchmove', this.onTouchMoveCapture, { capture: true, passive: false });
     this.isScrollLocked = true;
   }
 
   unlockPageScroll() {
     if (!this.isScrollLocked) return;
+    const html = document.documentElement;
+    const body = document.body;
+
     window.removeEventListener('wheel', this.onWheelCapture, true);
     window.removeEventListener('keydown', this.onKeyDownCapture, true);
-    this.modalContainer.removeEventListener('touchstart', this.onTouchStartCapture, true);
     this.modalContainer.removeEventListener('touchmove', this.onTouchMoveCapture, true);
 
-    // body styles restore
-    document.documentElement.style.overflow = this.prevHtmlOverflow;
-    document.body.style.overflow = this.prevBodyOverflow;
-    document.body.style.position = this.prevBodyPosition;
-    document.body.style.top = this.prevBodyTop;
-    document.body.style.left = this.prevBodyLeft;
-    document.body.style.right = this.prevBodyRight;
-    document.body.style.width = this.prevBodyWidth;
+    const restore = this.restoreScroll;
+    if (restore) {
+      // body styles restore
+      html.style.overflow = restore.htmlOverflow;
+      body.style.overflow = restore.body.overflow;
+      body.style.position = restore.body.position;
+      body.style.top = restore.body.top;
+      body.style.left = restore.body.left;
+      body.style.right = restore.body.right;
+      body.style.width = restore.body.width;
 
-    // スクロール位置を戻す
-    window.scrollTo(0, this.pageScrollY);
+      // スクロール位置を戻す
+      window.scrollTo(0, restore.scrollY);
+    }
 
     // Lenis があれば再開
-    if (window.lenis && typeof window.lenis.start === 'function') {
+    if (!this.isIOS && window.lenis && typeof window.lenis.start === 'function') {
       window.lenis.start();
     }
 
+    this.restoreScroll = null;
     this.isScrollLocked = false;
   }
 
@@ -308,43 +311,30 @@ export class ProjectModal {
     const pageStep = Math.max(120, Math.floor(article.clientHeight * 0.9));
     const lineStep = 48;
 
-    let handled = true;
-    switch (e.key) {
-      case ' ':
-        article.scrollTop += e.shiftKey ? -pageStep : pageStep;
-        break;
-      case 'PageDown':
-        article.scrollTop += pageStep;
-        break;
-      case 'PageUp':
-        article.scrollTop -= pageStep;
-        break;
-      case 'ArrowDown':
-        article.scrollTop += lineStep;
-        break;
-      case 'ArrowUp':
-        article.scrollTop -= lineStep;
-        break;
-      case 'Home':
-        article.scrollTop = 0;
-        break;
-      case 'End':
-        article.scrollTop = article.scrollHeight;
-        break;
-      default:
-        handled = false;
+    const key = e.key;
+    const scrollDeltaByKey = {
+      ArrowDown: lineStep,
+      ArrowUp: -lineStep,
+      PageDown: pageStep,
+      PageUp: -pageStep,
+      ' ': e.shiftKey ? -pageStep : pageStep,
+    };
+
+    if (key in scrollDeltaByKey) {
+      article.scrollTop += scrollDeltaByKey[key];
+      e.preventDefault();
+      return;
     }
 
-    if (handled) {
+    if (key === 'Home') {
+      article.scrollTop = 0;
+      e.preventDefault();
+      return;
+    }
+    if (key === 'End') {
+      article.scrollTop = article.scrollHeight;
       e.preventDefault();
     }
-  }
-
-  onTouchStartCapture(e) {
-    if (!this.isOpen) return;
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    this.lastTouchY = t.clientY;
   }
 
   onTouchMoveCapture(e) {
@@ -360,10 +350,6 @@ export class ProjectModal {
       e.preventDefault();
       return;
     }
-    // NOTE:
-    // iOS Safari では、祖先要素の touchmove で preventDefault が絡むと
-    // overflow: scroll のネイティブスクロールが開始できなくなることがある。
-    // そのため「記事内」は一切ブロックせず、記事外だけブロックする。
   }
 }
 

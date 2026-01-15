@@ -70,21 +70,30 @@
     --text-f-48-52: clamp(4.8rem, 0.447vw + 4.341rem, 5.2rem);
 }
 
-/* modal (project) scrollbar */
-[data-name="modal-container"] article {
+/* page scrollbar */
+html,
+body {
     scrollbar-color: var(--color-white01) transparent; /* Firefox */
-    scrollbar-width: thin; /* Firefox: closest to 3px */
-    -webkit-overflow-scrolling: touch; /* iOS: momentum scroll */
-    overscroll-behavior: contain; /* prevent scroll chaining */
-    touch-action: pan-y;
+    scrollbar-width: thin; /* Firefox */
 }
-[data-name="modal-container"] article::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
     width: 2px;
 }
-[data-name="modal-container"] article::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
     background: transparent;
 }
-[data-name="modal-container"] article::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
     background: var(--color-white01);
     border-radius: 0;
 }
+/* iOS: fixed overlay 内で article を確実にスクロールさせる */
+[data-name="modal-container"] article {
+    overflow-y: auto;                 /* 念のため明示 */
+    -webkit-overflow-scrolling: touch;/* iOSで重要 */
+    touch-action: pan-y;              /* 効く環境だけ補助 */
+}
+
+[data-name="modal-container"] { height: 100dvh; }
