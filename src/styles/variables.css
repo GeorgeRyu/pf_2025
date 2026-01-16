@@ -13,7 +13,9 @@
     --c-blue-02: #1D3765;
     --c-green-01: #477F33;
     --c-brawn-01: #A0472F;
-    
+
+    --c-base: #FFFFFF;
+    --c-accent: #000000;
 
     /* --baseX: max(4.0540vw,16px);  */
     --baseX: max(4.0540vw,42px); 

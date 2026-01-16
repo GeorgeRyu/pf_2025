@@ -37,6 +37,7 @@ export class WebGLSceneController {
     private colorExtractCanvas: HTMLCanvasElement;
     private colorExtractCtx: CanvasRenderingContext2D;
     private transitionTween: gsap.core.Tween | null = null;
+    private readonly THEME_CHANGE_EVENT = 'pf:color-theme-change';
 
     constructor() {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
@@ -61,10 +62,36 @@ export class WebGLSceneController {
         }
 
         this.init();
+        this.applyAccentToWebGL();
+        window.addEventListener(this.THEME_CHANGE_EVENT, () => this.applyAccentToWebGL());
         if (this.isDebug) this.debug();
         this.scrollAnimations();
         this.attachHoverHandlers();
         this.animate();
+    }
+
+    private readCssVarColor(varName: string, fallbackHex: string): THREE.Color {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+        const value = raw || fallbackHex;
+        try {
+            return new THREE.Color(value);
+        } catch {
+            return new THREE.Color(fallbackHex);
+        }
+    }
+
+    private applyAccentToWebGL() {
+        const accent = this.readCssVarColor('--c-accent', '#000000');
+
+        // rectangles (shared material)
+        if (this.blackMaterial) {
+            this.blackMaterial.color.copy(accent);
+        }
+
+        // works plate base color (shader)
+        if (this.plateShaderMaterial?.uniforms?.baseColor) {
+            (this.plateShaderMaterial.uniforms.baseColor.value as THREE.Color).copy(accent);
+        }
     }
 
     init() {
@@ -103,6 +130,7 @@ export class WebGLSceneController {
                 textureB: { value: null },
                 colorA: { value: new THREE.Color(0, 0, 0) },
                 colorB: { value: new THREE.Color(0, 0, 0) },
+                baseColor: { value: new THREE.Color(0, 0, 0) },
                 progress: { value: 0.0 },
                 useTexture: { value: 0.0 },
                 fadeOutProgress: { value: 0.0 },

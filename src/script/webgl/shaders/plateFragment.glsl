@@ -2,6 +2,7 @@ uniform sampler2D textureA;
 uniform sampler2D textureB;
 uniform vec3 colorA;
 uniform vec3 colorB;
+uniform vec3 baseColor;
 uniform float progress;
 uniform float useTexture;
 uniform float fadeOutProgress;
@@ -17,6 +18,11 @@ vec2 pixelate(vec2 uv, float pixelSize) {
     if (pixelSize >= 200.0) return uv;  // 十分細かい場合はそのまま
     if (pixelSize <= 1.0) return uv;
     return floor(uv * pixelSize) / pixelSize;
+}
+
+// baseColor only: linear -> sRGB encode (gamma)
+vec3 toSRGB(vec3 linearColor) {
+    return pow(clamp(linearColor, 0.0, 1.0), vec3(1.0 / 2.2));
 }
 
 void main() {
@@ -37,9 +43,10 @@ void main() {
         
         vec4 result = texture2D(textureA, uv);
         
-        // 黒へフェード
+        // baseColor へフェード
         float fade = smoothstep(0.3, 1.0, t);
-        result.rgb = mix(result.rgb, vec3(0.0), fade);
+        // NOTE: 動画側は補正せず、baseColor のみ補正して混ぜる
+        result.rgb = mix(result.rgb, toSRGB(baseColor), fade);
         
         gl_FragColor = result;
         return;
@@ -49,7 +56,8 @@ void main() {
     // テクスチャを使用しない場合は黒
     // ========================================
     if (useTexture < 0.5) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        // NOTE: 動画には補正を掛けない方針のため、ここは baseColor のみ補正
+        gl_FragColor = vec4(toSRGB(baseColor), 1.0);
         return;
     }
     

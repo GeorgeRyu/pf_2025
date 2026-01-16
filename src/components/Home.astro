@@ -43,13 +43,13 @@ const playgrounds = [
 ];
 ---
 
-<main class="relative h-[1000vh] bg-white01">
+<main class="relative h-[1000vh] bg-base">
     <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
 		
-	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-white02 mix-blend-difference z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
+	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-accent z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 justify-self-start lg:hidden">
 			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
-			<div class=" leading-snug bg-black02" data-name="name-area"></div>
+			<div class=" leading-snug bg-accent/20" data-name="name-area"></div>
 		</div>
 
 		<div class="hidden lg:block col-start-5">
@@ -119,22 +119,22 @@ const playgrounds = [
 
 	<!-- モーダルコンテナ -->
 	<div data-name="modal-container" class="hidden fixed top-0 left-0 w-full h-full z-[9999] lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*4+3rem+var(--s-20-60))]">
-		<div data-name="btn-close" class="absolute left-0 bottom-0 h-more-200 text-more-12 bg-black01 z-30 flex flex-col gap-y-3 items-center justify-center lg:hidden">
-			<span class="relative w-[9px] h-[9px] block">
-				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 rotate-45"></span>
-				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 -rotate-45"></span>
+		<div data-name="btn-close" class="absolute left-0 top-0 h-more-120 w-more-24 text-more-12 bg-accent z-30 flex flex-col gap-y-3 items-center justify-center lg:hidden">
+			<span class="relative w-[9px] h-[9px] block pointer-events-none">
+				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base rotate-45"></span>
+				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base -rotate-45"></span>
 			</span>
-			<span class="text-more-12 text-white01 [writing-mode:vertical-lr]">close</span>
+			<span class="text-more-12 text-base [writing-mode:vertical-lr] pointer-events-none">close</span>
 		</div>
 
 		{projects.map(project => (
-		<article data-name={project.slug} class="hidden absolute top-0 left-0 w-auto h-full ml-more-16 pl-more-12 bg-black01 text-white01 overflow-y-scroll lg:col-span-5 lg:col-start-2 lg:pt-more-40 lg:px-4 lg:ml-0">
-			<div data-name="btn-close" class="hidden sticky top-0 right-0 cursor-pointer w-fit ml-auto bg-black01 py-0.5 text-more-12 justify-end gap-x-3 items-center lg:flex">
+		<article data-name={project.slug} class="hidden absolute top-0 left-0 w-auto h-full ml-more-16 pl-more-12 bg-accent text-base overflow-y-scroll lg:col-span-5 lg:col-start-2 lg:pt-more-40 lg:px-4 lg:ml-0">
+			<div data-name="btn-close" class="hidden sticky top-0 right-0 cursor-pointer w-fit ml-auto bg-accent py-0.5 text-more-12 justify-end gap-x-3 items-center lg:flex">
 				<span class="relative w-[9px] h-[9px] block">
-					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 rotate-45"></span>
-					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-white01 -rotate-45"></span>
+					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base rotate-45"></span>
+					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base -rotate-45"></span>
 				</span>
-				<span class="text-more-12 text-white01">close</span>
+				<span class="text-more-12 text-base">close</span>
 			</div>
 
 			<div class="lg:mt-more-20">

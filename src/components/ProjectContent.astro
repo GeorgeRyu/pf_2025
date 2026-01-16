@@ -4,7 +4,7 @@ import { Image } from 'astro:assets';
 const { project, classNameWrapper } = Astro.props;
 ---
 
-<article class={`${classNameWrapper} bg-black01 text-white01`}>
+<article class={`${classNameWrapper} bg-black01 text-accent`}>
     <header>
       <div class="project-image">
           <img src={project.hero || "/placeholder.svg"} alt={project.title} />
