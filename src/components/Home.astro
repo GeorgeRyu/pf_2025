@@ -43,9 +43,10 @@ const playgrounds = [
 ];
 ---
 
-<main class="relative h-[1000vh] bg-base">
-    <WebGLScene movies={projects.slice(0,7).map(p => p.moviePc)} />
-		
+<main class="relative h-[1400vh] bg-base">
+    <!-- <WebGLScene movies={projects.slice(0,8).map(p => p.moviePc)} /> -->
+    <WebGLScene movies={projects.map(p => p.moviePc)} />
+
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-accent z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 justify-self-start lg:hidden">
 			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
@@ -100,7 +101,6 @@ const playgrounds = [
 
 			<!-- playground -->
 			<div data-name="playground-area" class="absolute top-0 left-0 w-full h-auto hidden grid-cols-4 gap-x-[8px] gap-y-8 lg:grid-cols-6">
-
 				<p data-name="kinetic-txt" class="col-span-2 col-start-3 lg:col-start-5 lg:col-span-1 lg:mt-24">This is a playground for learning and outputting 3D staging on a regular basis.</p>
 				<div class=" col-span-2 col-start-3 grid grid-cols-1 gap-y-[0.4em] lg:col-start-5 lg:col-span-1">
 					{playgrounds.map((playground, index) => (
@@ -113,7 +113,20 @@ const playgrounds = [
 						</a>
 					))}
 				</div>
-			</div>			
+			</div>
+
+			<!-- THX -->
+			<div data-name="thx-area" class="absolute top-0 left-0 w-full h-auto hidden grid-cols-4 gap-x-[8px] gap-y-8 lg:grid-cols-6">
+				<p data-name="kinetic-txt" class="col-span-2 col-start-3 lg:col-start-5 lg:col-span-1 lg:mt-24">
+					Thank you for visiting my site!
+					<br>
+					You can change the color theme and listen to music I’ve created.
+					<br>
+					If you haven’t tried them yet, check out the controllers and enjoy!
+					<br>
+					If you’re interested in collaborating, please feel free to email me.
+				</p>
+			</div>
 		</div>
 	</div>
 

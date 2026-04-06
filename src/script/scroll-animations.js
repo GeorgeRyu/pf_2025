@@ -1,7 +1,6 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import ScrambleTextPlugin from 'gsap/ScrambleTextPlugin';
-import { log } from 'three/tsl';
 
 // GSAPプラグインを登録
 gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
@@ -63,9 +62,9 @@ export class ScrollAnimations {
     }
 
     setupScrollAnimations() {
-        const eachArea = ['works-info', 'about-area', 'photos-area', 'playground-area'],
+        const eachArea = ['works-info', 'about-area', 'photos-area', 'playground-area', 'thx-area'],
             nameArea = document.querySelector('[data-name="name-area"]'),
-            eachAreaTitles = ['Works', 'About', 'Photos', 'Playground'];
+            eachAreaTitles = ['Works', 'About', 'Photos', 'Playground', 'THX'];
 
         nameArea.textContent = eachAreaTitles[0];
 
@@ -97,7 +96,7 @@ export class ScrollAnimations {
                     mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                 };
                 leaveBackFunc = '';
-                markers = false;
+                // markers = false;
 
             }else {
                 dis = (2 * index) * this.distance;
@@ -106,7 +105,7 @@ export class ScrollAnimations {
                     item.textContent = '';
                 });
 
-                if(index === 3) {
+                if(index === 4) {
                     pStart = `${dis} center`;
                     pEnd = `${dis} center`;
                     enterFunc = () => {
@@ -116,7 +115,7 @@ export class ScrollAnimations {
                     leaveFunc = () => '';
                     enterBackFunc = () => tlShowTxt.reverse();
                     leaveBackFunc = () => tlHideTxt.restart();;
-                    markers = false;
+                    // markers = false;
                     
                 }else {
                     pStart = `${dis} center`;
@@ -137,7 +136,7 @@ export class ScrollAnimations {
                         // tlShowTxt.reverse();
                         tlHideTxt.restart();
                     };
-                    markers = false;
+                    // markers = false;
                 }
             }
 
@@ -164,8 +163,6 @@ export class ScrollAnimations {
                 ease: "none",
                 stagger: 0.035,
                 onStart: () => {
-                    // console.log('ON START! area : ' + area);
-                    // console.log('targetArea : ' + targetArea);
                     if( targetArea.classList.contains('hidden') ) {
                         targetArea.classList.remove('hidden');
                         targetArea.classList.add('grid', 'z-10');

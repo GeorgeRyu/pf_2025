@@ -4,7 +4,8 @@ import { GUI } from 'lil-gui';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import SplitText from 'gsap/SplitText';
-
+// import studio from "@theatre/studio";
+import { getProject, types, type IProject, type ISheet } from "@theatre/core";
 // シェーダーをインポート
 import plateVertexShader from './shaders/plateVertex.glsl?raw';
 import plateFragmentShader from './shaders/plateFragment.glsl?raw';
@@ -17,6 +18,7 @@ export class WebGLSceneController {
     private scene: THREE.Scene;
     private camera: THREE.PerspectiveCamera;
     private isDebug: boolean;
+    private isTheaterEdit: boolean;
     private rectangles: THREE.Mesh[] = [];
     private groupRectangles!: THREE.Group;
     private worksPlate!: THREE.Mesh;
@@ -29,7 +31,8 @@ export class WebGLSceneController {
     private currentVideoIndex: number | null = null;
     private pendingVideoIndex: number | null = null;
     private worksPlateVideoTextures: THREE.VideoTexture[] = [];
-    
+    private theatreProject!: IProject;
+    private theatreSheet!: ISheet;
     // トランジション用
     private plateShaderMaterial!: THREE.ShaderMaterial;
     private currentTexture: THREE.Texture | null = null;
@@ -38,7 +41,8 @@ export class WebGLSceneController {
     private colorExtractCtx: CanvasRenderingContext2D;
     private transitionTween: gsap.core.Tween | null = null;
     private readonly THEME_CHANGE_EVENT = 'pf:color-theme-change';
-
+    private sequenceLength: number = 20; // 追加
+    
     constructor() {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
         this.container = document.getElementById('webgl-container');
@@ -46,6 +50,7 @@ export class WebGLSceneController {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         this.isDebug = false;
+        this.isTheaterEdit = true;
         
         // 色抽出用canvas（頻繁に読み取るのでwillReadFrequently: true）
         this.colorExtractCanvas = document.createElement('canvas');
@@ -65,7 +70,6 @@ export class WebGLSceneController {
         this.applyAccentToWebGL();
         window.addEventListener(this.THEME_CHANGE_EVENT, () => this.applyAccentToWebGL());
         if (this.isDebug) this.debug();
-        this.scrollAnimations();
         this.attachHoverHandlers();
         this.animate();
     }
@@ -94,7 +98,7 @@ export class WebGLSceneController {
         }
     }
 
-    init() {
+    async init() {
         // レンダラーの設定
         let mmInit = gsap.matchMedia();
 
@@ -164,14 +168,150 @@ export class WebGLSceneController {
         });
 
         this.scene.add(this.groupRectangles);
+    
+        await this.initTheatre();
+        // ローディングアニメーション（0% → 20%）を再生
+        await this.playLoadingAnimation();
+    
+        this.scrollAnimations();
 
         window.addEventListener('resize', this.onWindowResize.bind(this));
     }
 
+
+    async initTheatre() {
+        // Studio UIは開発時のみ
+        // if (this.isTheaterEdit) {
+        //     studio.initialize();
+        // }
+    
+        // 初期画面サイズでPC/SP判定
+        const isMobile = window.innerWidth <= 1023;
+        const projectName = isMobile ? 'sevenLinesMotionSP' : 'sevenLinesMotionPC';        
+        let projectState = null;
+        
+        try {
+            if (isMobile) {
+                // SP用JSONを読み込む（存在する場合）
+                const spData = await import('../../json/spAnimation.json');
+                projectState = spData.default;
+                console.log('📱 SP animation will be loaded (when available)');
+            } else {
+                // PC用JSONを読み込む
+                const pcData = await import('../../json/pcAnimation.json');
+                projectState = pcData.default;
+                console.log('💻 PC animation JSON loaded');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load animation JSON:', error);
+        }
+    
+        // JSONがある場合は読み込んで、ない場合は新規作成
+        if (projectState) {
+            console.log('✅ Loading project with saved state');
+            this.theatreProject = getProject(projectName, { state: projectState });
+        } else {
+            console.log('🆕 Creating new project (no saved state)');
+            this.theatreProject = getProject(projectName);
+        }
+    
+        // シート名はJSON内のシート名を使用
+        const sheetName = projectState?.sheetsById 
+            ? Object.keys(projectState.sheetsById)[0] 
+            : 'sevenLinesMotion';
+        
+        console.log('📄 Sheet name:', sheetName);
+        
+        this.theatreSheet = this.theatreProject.sheet(sheetName);
+        
+        console.log('sheet: ', this.theatreSheet);
+
+        // project.readyで読み込み完了を待つ
+        await this.theatreProject.ready;
+
+        // シーケンス長を設定
+        if (projectState?.sheetsById?.[sheetName]?.sequence?.length) {
+            this.sequenceLength = projectState.sheetsById[sheetName].sequence.length;
+        }
+        console.log('📏 Sequence length:', this.sequenceLength);
+
+        console.log('🔢 sequenceLength:', this.sequenceLength, typeof this.sequenceLength);
+        const loadingEndPosition = Number(this.sequenceLength) * 0.2;
+        console.log('🎬 Loading animation: 0 → ', loadingEndPosition, typeof loadingEndPosition);        
+
+        console.log('📏 Sequence length:', this.sequenceLength);
+
+        // オブジェクトをTheatre.jsにバインド
+        this.bindObject3D("groupRectangles", this.groupRectangles);
+        this.rectangles.forEach((rect, i) => {
+            this.bindObject3D(`rac${i + 1}`, rect);
+        });
+        this.bindObject3D("worksPlate", this.worksPlate);
+        
+        console.log('✅ Theatre.js binding complete');
+        
+
+    }
+
+    // ローディングアニメーションを再生
+    async playLoadingAnimation() {
+        const loadingEndPosition = this.sequenceLength * 0.2; // 20%の位置（20秒 * 0.2 = 4秒）
+        console.log('🎬 Loading animation: 0 → ', loadingEndPosition);
+    
+        // Theatre.jsの位置を0に設定
+        this.theatreSheet.sequence.position = 0;
+        
+        // GSAPで0秒から20%の位置（4秒）まで自動アニメーション
+        return new Promise<void>((resolve) => {
+            const positionObj = { value: 0 };
+            gsap.to(positionObj, {
+                value: loadingEndPosition, // 0.2ではなく、4（= 20 * 0.2）
+                duration: 5, // 2秒かけてアニメーション
+                onUpdate: () => {
+                    this.theatreSheet.sequence.position = positionObj.value;
+                    // console.log('Position:', positionObj.value);
+                },
+                onComplete: () => {
+                    // console.log('✅ Loading animation complete at position:', loadingEndPosition);
+                    resolve();
+                }
+            });
+        });
+    }
+
+
+    // 例：Theatreの値 → THREE.Object3Dへ反映するバインド
+    bindObject3D(name: string, obj: THREE.Object3D) {
+        const tObj = this.theatreSheet.object(name, {
+        position: types.compound({
+            x: types.number(obj.position.x, { range: [-50, 50] }),
+            y: types.number(obj.position.y, { range: [-50, 50] }),
+            z: types.number(obj.position.z, { range: [-50, 50] }),
+        }),
+        rotation: types.compound({
+            x: types.number(obj.rotation.x, { range: [-Math.PI*2, Math.PI*2] }),
+            y: types.number(obj.rotation.y, { range: [-Math.PI*2, Math.PI*2] }),
+            z: types.number(obj.rotation.z, { range: [-Math.PI*2, Math.PI*2] }),
+        }),
+        scale: types.compound({
+            x: types.number(obj.scale.x, { range: [0, 5] }),
+            y: types.number(obj.scale.y, { range: [0, 5] }),
+            z: types.number(obj.scale.z, { range: [0, 5] }),
+        }),
+        });
+    
+        // GUI操作で値が変わったらTHREE側へ反映
+        return tObj.onValuesChange((v) => {
+            obj.position.set(v.position.x, v.position.y, v.position.z);
+            obj.rotation.set(v.rotation.x, v.rotation.y, v.rotation.z);
+            obj.scale.set(v.scale.x, v.scale.y, v.scale.z);
+        });
+    }    
+
     private ensureVideosPrepared() {
         if (this.videos.length || !this.movies.length) return;
 
-        const videoCount = Math.min(7, this.movies.length);
+        const videoCount = this.movies.length;
         for (let i = 0; i < videoCount; i++) {
             const url = this.movies[i];
             const video = document.createElement('video');
@@ -213,6 +353,8 @@ export class WebGLSceneController {
     }
 
     private showVideoOnWorksPlate(videoIndex: number) {
+
+        console.log('🎬 showVideoOnWorksPlate', videoIndex);
         this.ensureVideosPrepared();
         if (!this.worksPlateVideoTextures[videoIndex]) return;
         
@@ -394,8 +536,7 @@ export class WebGLSceneController {
             items = worksInfo.querySelectorAll('.project-link');
         }
 
-        const itemsArr = Array.from(items).slice(0, 7) as HTMLElement[];
-        itemsArr.forEach((el, idx) => {
+        items.forEach((el, idx) => {
             el.addEventListener('mouseenter', () => this.showVideoOnWorksPlate(idx));
             el.addEventListener('mouseleave', () => this.clearVideoFromWorksPlate());
             el.addEventListener('focus', () => this.showVideoOnWorksPlate(idx));
@@ -404,210 +545,251 @@ export class WebGLSceneController {
     }
 
     scrollAnimations() {
-        const distanceHeight = window.innerHeight * 1.5,
-            body = document.querySelector('body'),
-            groupRectangles = this.groupRectangles,
-            rac1 = this.rectangles[0],
-            rac2 = this.rectangles[1],
-            rac3 = this.rectangles[2],
-            rac4 = this.rectangles[3],
-            rac5 = this.rectangles[4],
-            rac6 = this.rectangles[5],
-            rac7 = this.rectangles[6],
-            tlWorkToAbout = gsap.timeline({
-                scrollTrigger: {
-                    trigger: body,
-                    start: `${distanceHeight} bottom-=10%`,
-                    end: `${distanceHeight * 2} center`,
-                    scrub: true,
-                    markers: false
-                }
-            }),
-            tlAboutToPhotos = gsap.timeline({
-                scrollTrigger: {
-                    trigger: body,
-                    start: `${distanceHeight * 3.5} bottom`,
-                    end: `${distanceHeight * 4} center`,
-                    scrub: true,
-                    markers: false,
-                }
-            }),
-            tlPhotosToPlayground = gsap.timeline({
-                scrollTrigger: {
-                    trigger: body,
-                    start: `${distanceHeight * 5.5} bottom`,
-                    end: `${distanceHeight * 6} center`,
-                    scrub: true,
-                    markers: false
+        const distanceHeight = window.innerHeight * 1.5;
+        const body = document.querySelector('body');
+        const sequenceLength = this.sequenceLength;
+
+            // groupRectangles = this.groupRectangles,
+            // rac1 = this.rectangles[0],
+            // rac2 = this.rectangles[1],
+            // rac3 = this.rectangles[2],
+            // rac4 = this.rectangles[3],
+            // rac5 = this.rectangles[4],
+            // rac6 = this.rectangles[5],
+            // rac7 = this.rectangles[6],
+            // worksPlate = this.worksPlate;
+
+        // 20%以降の4つのセクションを定義
+        const sections = [
+            { start: 0.2, end: 0.4, scrollStart: distanceHeight * 0.5, scrollEnd: distanceHeight * 2 },
+            { start: 0.4, end: 0.6, scrollStart: distanceHeight * 2.5, scrollEnd: distanceHeight * 4 },
+            { start: 0.6, end: 0.8, scrollStart: distanceHeight * 4.5, scrollEnd: distanceHeight * 6 },
+            { start: 0.8, end: 1.0, scrollStart: distanceHeight * 6.5, scrollEnd: distanceHeight * 8 }
+        ];
+        sections.forEach((section, index) => {
+            ScrollTrigger.create({
+                trigger: body,
+                start: `${section.scrollStart} top`,
+                end: `${section.scrollEnd} top`,
+                scrub: 1.5,
+                markers: false,
+                onUpdate: (self) => {
+                    const progress = self.progress;
+                    const theatreStart = section.start * sequenceLength;
+                    const theatreEnd = section.end * sequenceLength;
+                    const theatrePosition = theatreStart + (theatreEnd - theatreStart) * progress;
+                    
+                    this.theatreSheet.sequence.position = theatrePosition;
                 }
             });
+        });
+
+            // tlWorkToAbout = gsap.timeline({
+            //     scrollTrigger: {
+            //         trigger: body,
+            //         start: `${distanceHeight} bottom-=10%`,
+            //         end: `${distanceHeight * 2} center`,
+            //         scrub: true,
+            //         markers: false
+            //     }
+            // }),
+            // tlAboutToPhotos = gsap.timeline({
+            //     scrollTrigger: {
+            //         trigger: body,
+            //         start: `${distanceHeight * 3.5} bottom`,
+            //         end: `${distanceHeight * 4} center`,
+            //         scrub: true,
+            //         markers: false,
+            //     }
+            // }),
+            // tlPhotosToPlayground = gsap.timeline({
+            //     scrollTrigger: {
+            //         trigger: body,
+            //         start: `${distanceHeight * 5.5} bottom`,
+            //         end: `${distanceHeight * 6} center`,
+            //         scrub: true,
+            //         markers: false
+            //     }
+            // });
 
         let mm = gsap.matchMedia();
 
-        mm.add('(max-width: 1023px)', () => {
-            tlWorkToAbout
-                .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
-                .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
-                .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
-                .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
-                .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
-                .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
-                .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
-                .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(groupRectangles.position, { x: -13.5, y: -13, z: 10, duration: 1.8, ease: 'easeOut01' }, '0.8')
-                .to(groupRectangles.rotation, { z: -0.7, duration: 1.8, ease: 'easeOut01' }, '<')
-                .to(this.worksPlate.position, {y: -6, z: -10, duration: 0.5, ease: 'easeOut01' }, '<')
-                .to(this.worksPlate.position, {x: -10, y: -11.0, z: -21, duration: 1.1, ease: 'easeIn01' })
-                ;
+        // this.bindObject3D("groupRectangles", this.groupRectangles);
+        // // rectangles（rac1〜rac7）
+        // this.rectangles.forEach((m, i) => {
+        //     this.bindObject3D(`rac${i + 1}`, m);
+        // });
+        // // worksPlate
+        // this.bindObject3D("worksPlate", this.worksPlate);
 
-            tlAboutToPhotos
-                .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
-                .to(groupRectangles.position, { x: 1, y: -1, z: 10, duration: 1.5, ease: 'power3.inOut' }, '<')
-                .to(this.worksPlate.position, {x: 0, y: 0, z: 0, duration: 1.0, ease: 'easeOut01' }, '<')
-                .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(groupRectangles.rotation, { z: 0, x: (Math.PI / 2), duration: 1.5, ease: 'power3.inOut' })
-                .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
-                .to(groupRectangles.position, { y: -1.8, z: 4, duration: 1.5, ease: 'easeOut01' }, '<')
-                .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
-                .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
-                .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(groupRectangles.position, { z: 8.6, duration: 1.5, ease: 'easeOut01' })
-                .to(rac2.position, { x: -2.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: 0.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac1.position, { x: 0.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<+=0.075')
-                .to(rac7.position, { x: -2.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 1.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -3.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<');
 
-            tlPhotosToPlayground
-                .to(groupRectangles.position, { z: -10, y: -6, duration: 1.5, ease: 'power3.inOut' })
-                .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<')
-                .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
-                .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(groupRectangles.position, { z: 0, y: -4.5, duration: 1.5, ease: 'power3.inOut' })
-                .to(rac4.position, { x: -14.5, duration: 1, ease: 'power3.inOut' }, '<')
-                .to([rac3.position, rac5.position], { x: -17, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to([rac2.position, rac6.position], { x: -19.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to([rac1.position, rac7.position], { x: -22, duration: 1, ease: 'power3.inOut' }, '<+0.1');
-        });
+        // mm.add('(max-width: 1023px)', () => {
+        //     tlWorkToAbout
+        //         .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
+        //         .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
+        //         .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
+        //         .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
+        //         .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
+        //         .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
+        //         .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
+        //         .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(groupRectangles.position, { x: -13.5, y: -13, z: 10, duration: 1.8, ease: 'easeOut01' }, '0.8')
+        //         .to(groupRectangles.rotation, { z: -0.7, duration: 1.8, ease: 'easeOut01' }, '<')
+        //         .to(worksPlate.position, {y: -6, z: -10, duration: 0.5, ease: 'easeOut01' }, '<')
+        //         .to(worksPlate.position, {x: -10, y: -11.0, z: -21, duration: 1.1, ease: 'easeIn01' })
+        //         ;
 
-        mm.add('(min-width: 1024px)', () => {
-            tlWorkToAbout
-                .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
-                .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
-                .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
-                .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
-                .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
-                .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
-                .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
-                .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-                .to(groupRectangles.position, { x: -12.32, y: -14, z: 1.6, duration: 1.8, ease: 'easeOut01' }, '0.8')
-                .to(groupRectangles.rotation, { z: -0.50265, duration: 1.8, ease: 'easeOut01' }, '<')
-                .to(this.worksPlate.position, { x: -15.5, y: -1.2, z: -19, duration: 0.6, ease: 'easeOut01' }, '<')
-                .to(this.worksPlate.position, { x: -14.8, y: -5.5, z: -19, duration: 0.6, ease: 'easeIn01' })
-                ;
+        //     tlAboutToPhotos
+        //         .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
+        //         .to(groupRectangles.position, { x: 1, y: -1, z: 10, duration: 1.5, ease: 'power3.inOut' }, '<')
+        //         .to(worksPlate.position, {x: 0, y: 0, z: 0, duration: 1.0, ease: 'easeOut01' }, '<')
+        //         .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(groupRectangles.rotation, { z: 0, x: (Math.PI / 2), duration: 1.5, ease: 'power3.inOut' })
+        //         .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
+        //         .to(groupRectangles.position, { y: -1.8, z: 4, duration: 1.5, ease: 'easeOut01' }, '<')
+        //         .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
+        //         .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
+        //         .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(groupRectangles.position, { z: 8.6, duration: 1.5, ease: 'easeOut01' })
+        //         .to(rac2.position, { x: -2.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: 0.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac1.position, { x: 0.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<+=0.075')
+        //         .to(rac7.position, { x: -2.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 1.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -3.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<');
 
-            tlAboutToPhotos
-                .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
-                .to(groupRectangles.position, { x: 1, y: -1, z: -0.9, duration: 1.5, ease: 'power3.inOut' }, '<')
-                .to(this.worksPlate.position, { x: 0, y: 0, z: -6.0, duration: 0.9, ease: 'easeOut01' }, '<')
-                .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(groupRectangles.rotation, { z: 0, x: (Math.PI / 2), duration: 1.5, ease: 'power3.inOut' })
-                .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
-                .to(groupRectangles.position, { y: -0.7, z: 1.66, duration: 1.5, ease: 'easeOut01' }, '<')
-                .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
-                .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
-                .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac1.position, { x: 2.6, z: -0.6628, duration: 1.5, ease: 'power3.out' })
-                .to(rac2.position, { x: 2.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac3.position, { x: 0.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac4.position, { x: -1, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac5.position, { x: -2.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac6.position, { x: -4.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-                .to(rac7.position, { x: -4.6, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<');
+        //     tlPhotosToPlayground  
+        //         .to(groupRectangles.position, { z: -10, y: -6, duration: 1.5, ease: 'power3.inOut' })
+        //         .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<') 
+        //         .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
+        //         .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
 
-            tlPhotosToPlayground
-                .to(groupRectangles.position, { z: -20, y: -1, duration: 1.5, ease: 'power3.inOut' })
-                .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<')
-                .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
-                .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-                .to(groupRectangles.position, { z: -10, y: -1, duration: 1.5, ease: 'power3.inOut' })
-                .to(rac4.position, { x: -18.5, duration: 1, ease: 'power3.inOut' }, '<')
-                .to([rac3.position, rac5.position], { x: -22.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to([rac2.position, rac6.position], { x: -26.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-                .to([rac1.position, rac7.position], { x: -30.5, duration: 1, ease: 'power3.inOut' }, '<+0.1');
-        });
+        //         .to(groupRectangles.position, { z: 0, y: -4.5, duration: 1.5, ease: 'power3.inOut' })
+        //         .to(rac4.position, { x: -14.5, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to([rac3.position, rac5.position], { x: -17, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to([rac2.position, rac6.position], { x: -19.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to([rac1.position, rac7.position], { x: -22, duration: 1, ease: 'power3.inOut' }, '<+0.1');
+        // });
+
+        // mm.add('(min-width: 1024px)', () => {
+        //     tlWorkToAbout
+        //         .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
+        //         .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
+        //         .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
+        //         .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
+        //         .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
+        //         .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
+        //         .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
+        //         .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
+        //         .to(groupRectangles.position, { x: -12.32, y: -14, z: 1.6, duration: 1.8, ease: 'easeOut01' }, '0.8')
+        //         .to(groupRectangles.rotation, { z: -0.50265, duration: 1.8, ease: 'easeOut01' }, '<')
+        //         .to(worksPlate.position, { x: -15.5, y: -1.2, z: -19, duration: 0.6, ease: 'easeOut01' }, '<')
+        //         .to(worksPlate.position, { x: -14.8, y: -5.5, z: -19, duration: 0.6, ease: 'easeIn01' })
+        //         ;
+
+        //     tlAboutToPhotos
+        //         .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
+        //         .to(groupRectangles.position, { x: 1, y: -1, z: -0.9, duration: 1.5, ease: 'power3.inOut' }, '<')
+        //         .to(worksPlate.position, { x: 0, y: 0, z: -6.0, duration: 0.9, ease: 'easeOut01' }, '<')
+        //         .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(groupRectangles.rotation, {x: (Math.PI / 2), z: 0, duration: 1.5, ease: 'power3.inOut' })
+        //         .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
+        //         .to(groupRectangles.position, { y: -0.7, z: 1.66, duration: 1.5, ease: 'easeOut01' }, '<')
+        //         .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
+        //         .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
+        //         .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac1.position, { x: 2.6, z: -0.6628, duration: 1.5, ease: 'power3.out' })
+        //         .to(rac2.position, { x: 2.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac3.position, { x: 0.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac4.position, { x: -1, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac5.position, { x: -2.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac6.position, { x: -4.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
+        //         .to(rac7.position, { x: -4.6, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<');
+
+        //     tlPhotosToPlayground
+        //         .to(groupRectangles.position, {y: -1,  z: -20, duration: 1.5, ease: 'power3.inOut' })                
+        //         .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<')
+                
+        //         .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
+        //         .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
+
+        //         .to(groupRectangles.position, { z: -10, y: -1, duration: 1.5, ease: 'power3.inOut' })
+        //         .to(rac4.position, { x: -18.5, duration: 1, ease: 'power3.inOut' }, '<')
+        //         .to([rac3.position, rac5.position], { x: -22.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to([rac2.position, rac6.position], { x: -26.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
+        //         .to([rac1.position, rac7.position], { x: -30.5, duration: 1, ease: 'power3.inOut' }, '<+0.1');
+        // });
     }
 
     debug() {
@@ -616,6 +798,33 @@ export class WebGLSceneController {
         document.body.appendChild(this.stats.dom);
 
         this.gui = new GUI();
+        // groupRectangles用のフォルダ
+        const groupFolder = this.gui.addFolder('Group Rectangles');
+        groupFolder.add(this.groupRectangles.position, 'x', -50, 50).name('Group Pos X');
+        groupFolder.add(this.groupRectangles.position, 'y', -50, 50).name('Group Pos Y');
+        groupFolder.add(this.groupRectangles.position, 'z', -50, 50).name('Group Pos Z');
+        groupFolder.add(this.groupRectangles.rotation, 'x', -Math.PI, Math.PI).name('Group Rot X');
+        groupFolder.add(this.groupRectangles.rotation, 'y', -Math.PI, Math.PI).name('Group Rot Y');
+        groupFolder.add(this.groupRectangles.rotation, 'z', -Math.PI, Math.PI).name('Group Rot Z');
+        groupFolder.add(this.groupRectangles.scale, 'x', 0, 5).name('Group Scale X');
+        groupFolder.add(this.groupRectangles.scale, 'y', 0, 5).name('Group Scale Y');
+        groupFolder.add(this.groupRectangles.scale, 'z', 0, 5).name('Group Scale Z');
+        
+        // 各rectangle用のフォルダ（rac1～rac7）
+        this.rectangles.forEach((rect, index) => {
+            const rectFolder = this.gui.addFolder(`Rectangle ${index + 1}`).close();
+            rectFolder.add(rect.position, 'x', -50, 50).name(`Rac${index + 1} Pos X`);
+            rectFolder.add(rect.position, 'y', -50, 50).name(`Rac${index + 1} Pos Y`);
+            rectFolder.add(rect.position, 'z', -50, 50).name(`Rac${index + 1} Pos Z`);
+            rectFolder.add(rect.rotation, 'x', -Math.PI, Math.PI).name(`Rac${index + 1} Rot X`);
+            rectFolder.add(rect.rotation, 'y', -Math.PI, Math.PI).name(`Rac${index + 1} Rot Y`);
+            rectFolder.add(rect.rotation, 'z', -Math.PI, Math.PI).name(`Rac${index + 1} Rot Z`);
+            rectFolder.add(rect.scale, 'x', 0, 5).name(`Rac${index + 1} Scale X`);
+            rectFolder.add(rect.scale, 'y', 0, 5).name(`Rac${index + 1} Scale Y`);
+            rectFolder.add(rect.scale, 'z', 0, 5).name(`Rac${index + 1} Scale Z`);
+        });
+        
+        // Works Plate用のフォルダ
         const worksPlateGroup = this.gui.addFolder('Works Plate').close();
         worksPlateGroup.add(this.worksPlate.position, 'x', -180, 180).name('Works Plate Pos X');
         worksPlateGroup.add(this.worksPlate.position, 'y', -50, 50).name('Works Plate Pos Y');
