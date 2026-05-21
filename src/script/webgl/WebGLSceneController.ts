@@ -12,6 +12,21 @@ import plateFragmentShader from './shaders/plateFragment.glsl?raw';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
+// worksPlate に表示するコンテンツ種別
+// 将来 'image' の key を追加していくことで About / THX 等を共通APIで扱える
+export type PlateContent =
+    | { kind: 'video'; index: number }
+    | { kind: 'image'; key: string };
+
+// 現在アクティブなセクション。Works ホバーや UI 連動の出し分けに使う
+export type ActiveSection =
+    | 'loading'
+    | 'works'
+    | 'about'
+    | 'photos'
+    | 'playground'
+    | 'thx';
+
 export class WebGLSceneController {
     private renderer: THREE.WebGLRenderer;
     private container: HTMLElement | null;
@@ -20,28 +35,58 @@ export class WebGLSceneController {
     private isDebug: boolean;
     private isTheaterEdit: boolean;
     private rectangles: THREE.Mesh[] = [];
+    private rectangleMaterials: THREE.MeshBasicMaterial[] = [];
     private groupRectangles!: THREE.Group;
     private worksPlate!: THREE.Mesh;
     private stats!: Stats;
     private gui!: GUI;
-    private videos: HTMLVideoElement[] = [];
-    private blackMaterial!: THREE.MeshBasicMaterial;
-    private worksPlateBlackMaterial!: THREE.MeshBasicMaterial;
+    // ---- worksPlate コンテンツ管理 ----
     private movies: string[] = [];
-    private currentVideoIndex: number | null = null;
-    private pendingVideoIndex: number | null = null;
-    private worksPlateVideoTextures: THREE.VideoTexture[] = [];
+    // 動画系
+    private videos: HTMLVideoElement[] = [];
+    private videoTextures: THREE.VideoTexture[] = [];
+    // 画像系（About / THX 等で使う）
+    private imageTextures: Map<string, THREE.Texture> = new Map();
+    private imageElements: Map<string, HTMLImageElement> = new Map();
+    // 現在/遷移中コンテンツ
+    private currentContent: PlateContent | null = null;
+    private pendingContent: PlateContent | null = null;
     private theatreProject!: IProject;
     private theatreSheet!: ISheet;
     // トランジション用
     private plateShaderMaterial!: THREE.ShaderMaterial;
     private currentTexture: THREE.Texture | null = null;
-    private dominantColors: THREE.Color[] = [];
     private colorExtractCanvas: HTMLCanvasElement;
     private colorExtractCtx: CanvasRenderingContext2D;
     private transitionTween: gsap.core.Tween | null = null;
     private readonly THEME_CHANGE_EVENT = 'pf:color-theme-change';
-    private sequenceLength: number = 20; // 追加
+    private sequenceLength: number = 20;
+
+    // ---- セクションステート ----
+    // どのエリア（Works / About / ...）にいるかを保持。Works ホバーのガード等に使用。
+    private activeSection: ActiveSection = 'loading';
+
+    // ---- アセットパス ----
+    private static readonly ABOUT_IMAGE_URL = '/images/about/my-01.jpg';
+    private static readonly ABOUT_IMAGE_KEY = 'about';
+
+    // ---- 画像モード（About）の演出パラメータ ----
+    // ※ ここを編集するとシェーダーへ反映される。runtime に setAboutImageConfig() でも変更可能。
+    private aboutImageConfig = {
+        baseReveal: 0.65,      // 全体の基準可視率 (0..1) ← 大きいほどはっきり、小さいほどうっすら
+        noiseScale: 2.0,       // ノイズの粒度（大きいほど細かい）
+        noiseSpeed: 0.4,      // ノイズが流れる速度
+        mouseRadius: 0.3,     // PC: カーソルスポットの半径（UV単位 0..1）
+        mouseSoftness: 1.75,   // PC: スポット境界のなめらかさ (0..1, 1=ふんわり)
+        mousePcStrength: 0.5,  // PC時のカーソル強度（カーソル位置でフル可視に）
+    };
+
+    // ---- PC/SP 判定 + ポインタ追跡（PCカーソルスポット用） ----
+    private isPC: boolean = false;
+    private raycaster = new THREE.Raycaster();
+    private pointerNdc = new THREE.Vector2();
+    private mouseUvTarget = new THREE.Vector2(0.5, 0.5);
+    private lastFrameTime: number = 0;
     
     constructor() {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
@@ -86,15 +131,18 @@ export class WebGLSceneController {
 
     private applyAccentToWebGL() {
         const accent = this.readCssVarColor('--c-accent', '#000000');
+        const base = this.readCssVarColor('--c-base', '#ffffff');
 
-        // rectangles (shared material)
-        if (this.blackMaterial) {
-            this.blackMaterial.color.copy(accent);
-        }
+        // 各 rectangle のマテリアル（個別インスタンス）
+        this.rectangleMaterials.forEach((m) => m.color.copy(accent));
 
-        // works plate base color (shader)
+        // works plate (shader)
         if (this.plateShaderMaterial?.uniforms?.baseColor) {
-            (this.plateShaderMaterial.uniforms.baseColor.value as THREE.Color).copy(accent);
+            const u = this.plateShaderMaterial.uniforms;
+            (u.baseColor.value as THREE.Color).copy(accent);
+            // About 画像のデュオトーン: 明部=base, 暗部=accent
+            (u.duotoneLight.value as THREE.Color).copy(base);
+            (u.duotoneDark.value as THREE.Color).copy(accent);
         }
     }
 
@@ -109,14 +157,18 @@ export class WebGLSceneController {
         }
 
         // 四角柱を作成（ステンシルマスク用）
+        // 将来 Photos/Playground で各柱の手前フェイスに個別テクスチャを当てるため、
+        // material は共有せず 1本ずつ独立インスタンスにしておく。
         const geometry = new THREE.BoxGeometry(2, 35, 1.1256);
-        this.blackMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x000000,
-            side: THREE.DoubleSide
-        });
-        
+
         for (let i = 0; i < 7; i++) {
-            const mesh = new THREE.Mesh(geometry, this.blackMaterial);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                side: THREE.DoubleSide
+            });
+            this.rectangleMaterials.push(material);
+
+            const mesh = new THREE.Mesh(geometry, material);
             mesh.rotation.z = Math.PI / 12 * i;
             mesh.scale.z = 0.01;
             this.rectangles.push(mesh);
@@ -142,13 +194,28 @@ export class WebGLSceneController {
                 uvScaleA: { value: new THREE.Vector2(1, 1) },
                 uvOffsetA: { value: new THREE.Vector2(0, 0) },
                 uvScaleB: { value: new THREE.Vector2(1, 1) },
-                uvOffsetB: { value: new THREE.Vector2(0, 0) }
+                uvOffsetB: { value: new THREE.Vector2(0, 0) },
+                // --- 画像モード（About） ---
+                imageMode:          { value: 0.0 },
+                imageBaseReveal:    { value: this.aboutImageConfig.baseReveal },
+                imageNoiseScale:    { value: this.aboutImageConfig.noiseScale },
+                imageNoiseSpeed:    { value: this.aboutImageConfig.noiseSpeed },
+                imageMouseUv:       { value: new THREE.Vector2(0.5, 0.5) },
+                imageMouseStrength: { value: 0.0 },   // PC判定後に上書き
+                imageMouseRadius:   { value: this.aboutImageConfig.mouseRadius },
+                imageMouseSoftness: { value: this.aboutImageConfig.mouseSoftness },
+                // --- デュオトーン（テーマ連動） ---
+                duotoneLight: { value: new THREE.Color(1, 1, 1) },
+                duotoneDark:  { value: new THREE.Color(0, 0, 0) },
             },
             vertexShader: plateVertexShader,
             fragmentShader: plateFragmentShader,
             side: THREE.DoubleSide,
             transparent: true
         });
+
+        // テーマカラー（baseColor / duotone）を shader に反映
+        this.applyAccentToWebGL();
         
         this.worksPlate = new THREE.Mesh(worksPlateGeometry, this.plateShaderMaterial);
         this.worksPlate.scale.set(1, 1, 1);
@@ -159,20 +226,41 @@ export class WebGLSceneController {
             this.camera.position.z = 18;
             this.groupRectangles.position.set(-9, -3.5, -15);
             this.worksPlate.position.set(-9, -3.5, -16);
+            this.isPC = false;
+            this.plateShaderMaterial.uniforms.imageMouseStrength.value = 0.0;
         });
-        
+
         mmInit.add('(min-width: 1024px)', () => {
             this.camera.position.z = 5;
             this.groupRectangles.position.set(-17, -6, -15);
             this.worksPlate.position.set(-18, -4.5, -19);
+            this.isPC = true;
+            this.plateShaderMaterial.uniforms.imageMouseStrength.value = this.aboutImageConfig.mousePcStrength;
         });
 
         this.scene.add(this.groupRectangles);
-    
+
+        // PCのみ pointermove でカーソル UV をトラッキング
+        window.addEventListener('pointermove', this.onPointerMove);
+
+        // About 画像を事前ロード（Theatre 初期化と並列）
+        const aboutImagePromise = this.loadImageTexture(
+            WebGLSceneController.ABOUT_IMAGE_KEY,
+            WebGLSceneController.ABOUT_IMAGE_URL
+        ).catch((err) => {
+            console.warn('⚠️ Failed to load about image:', err);
+        });
+
         await this.initTheatre();
         // ローディングアニメーション（0% → 20%）を再生
         await this.playLoadingAnimation();
-    
+
+        // ローディング完了 → Works が初期セクション
+        this.activeSection = 'works';
+
+        // 画像ロード完了を待つ（scrollAnimations 内でトリガーするため）
+        await aboutImagePromise;
+
         this.scrollAnimations();
 
         window.addEventListener('resize', this.onWindowResize.bind(this));
@@ -308,6 +396,11 @@ export class WebGLSceneController {
         });
     }    
 
+    // =========================================================
+    //  worksPlate コンテンツ（動画 / 画像）共通API
+    // =========================================================
+
+    /** 動画要素・テクスチャを必要時に初期化（初回 show 時に呼ばれる） */
     private ensureVideosPrepared() {
         if (this.videos.length || !this.movies.length) return;
 
@@ -327,94 +420,172 @@ export class WebGLSceneController {
             plateTex.colorSpace = THREE.SRGBColorSpace;
             plateTex.wrapS = THREE.ClampToEdgeWrapping;
             plateTex.wrapT = THREE.ClampToEdgeWrapping;
-            this.worksPlateVideoTextures.push(plateTex);
-            
-            this.dominantColors.push(new THREE.Color(0, 0, 0));
+            this.videoTextures.push(plateTex);
         }
     }
 
-    private getDominantColor(video: HTMLVideoElement): THREE.Color {
+    /** 画像を読み込み、key で参照できるよう登録（About 等のセットアップで呼ぶ） */
+    protected loadImageTexture(key: string, url: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.setCrossOrigin('anonymous');
+            loader.load(
+                url,
+                (texture) => {
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    texture.wrapS = THREE.ClampToEdgeWrapping;
+                    texture.wrapT = THREE.ClampToEdgeWrapping;
+                    this.imageTextures.set(key, texture);
+                    const img = texture.image as HTMLImageElement;
+                    if (img) this.imageElements.set(key, img);
+                    resolve();
+                },
+                undefined,
+                (err) => reject(err)
+            );
+        });
+    }
+
+    /** PlateContent からテクスチャと色抽出元の HTMLElement を取り出す。未準備なら null */
+    private resolveContent(content: PlateContent):
+        | { texture: THREE.Texture; source: HTMLVideoElement | HTMLImageElement }
+        | null {
+        if (content.kind === 'video') {
+            this.ensureVideosPrepared();
+            const tex = this.videoTextures[content.index];
+            const el = this.videos[content.index];
+            if (!tex || !el) return null;
+            return { texture: tex, source: el };
+        } else {
+            const tex = this.imageTextures.get(content.key);
+            const el = this.imageElements.get(content.key);
+            if (!tex || !el) return null;
+            return { texture: tex, source: el };
+        }
+    }
+
+    private isSameContent(a: PlateContent | null, b: PlateContent | null): boolean {
+        if (!a || !b) return a === b;
+        if (a.kind !== b.kind) return false;
+        if (a.kind === 'video' && b.kind === 'video') return a.index === b.index;
+        if (a.kind === 'image' && b.kind === 'image') return a.key === b.key;
+        return false;
+    }
+
+    /** 動画コンテンツのみ再生開始（画像は no-op） */
+    private playContent(content: PlateContent) {
+        if (content.kind !== 'video') return;
+        const v = this.videos[content.index];
+        if (!v) return;
+        try { v.currentTime = 0; } catch (e) {}
+        v.loop = true;
+        v.play().catch(() => {});
+    }
+
+    /** 動画コンテンツのみ一時停止（画像は no-op） */
+    private pauseContent(content: PlateContent | null) {
+        if (!content || content.kind !== 'video') return;
+        this.videos[content.index]?.pause();
+    }
+
+    /** plate(1:1) に対する cover 相当の UV scale/offset を計算 */
+    private calcUVTransform(source: HTMLVideoElement | HTMLImageElement) {
+        const plateAspect = 1;
+        let w = 0, h = 0;
+        if (source instanceof HTMLVideoElement) {
+            w = source.videoWidth;
+            h = source.videoHeight;
+        } else {
+            w = source.naturalWidth;
+            h = source.naturalHeight;
+        }
+        const aspect = (w && h) ? (w / h) : (16 / 9);
+
+        if (aspect > plateAspect) {
+            const scale = plateAspect / aspect;
+            return { scale: new THREE.Vector2(scale, 1), offset: new THREE.Vector2((1 - scale) / 2, 0) };
+        } else {
+            const scale = aspect / plateAspect;
+            return { scale: new THREE.Vector2(1, scale), offset: new THREE.Vector2(0, (1 - scale) / 2) };
+        }
+    }
+
+    /** ソース（動画/画像）からドミナントカラーを抽出 */
+    private getDominantColor(source: HTMLVideoElement | HTMLImageElement): THREE.Color {
         try {
-            this.colorExtractCtx.drawImage(video, 0, 0, 8, 8);
+            this.colorExtractCtx.drawImage(source as CanvasImageSource, 0, 0, 8, 8);
             const imageData = this.colorExtractCtx.getImageData(0, 0, 8, 8).data;
             let r = 0, g = 0, b = 0;
             const pixelCount = 64;
-            
             for (let i = 0; i < imageData.length; i += 4) {
                 r += imageData[i];
                 g += imageData[i + 1];
                 b += imageData[i + 2];
             }
-            
             return new THREE.Color(r / pixelCount / 255, g / pixelCount / 255, b / pixelCount / 255);
         } catch (e) {
             return new THREE.Color(0.5, 0.5, 0.5);
         }
     }
 
-    private showVideoOnWorksPlate(videoIndex: number) {
+    /**
+     * worksPlate に動画/画像を表示する（ドット → 解像 のリビールで遷移）
+     * @param next 表示したいコンテンツ
+     * @param opts duration / ease を上書き可能
+     */
+    private showContentOnPlate(next: PlateContent, opts?: { duration?: number; ease?: string }) {
+        console.log('🎬 showContentOnPlate', next);
 
-        console.log('🎬 showVideoOnWorksPlate', videoIndex);
-        this.ensureVideosPrepared();
-        if (!this.worksPlateVideoTextures[videoIndex]) return;
-        
-        if (this.currentVideoIndex === videoIndex) return;
+        const resolved = this.resolveContent(next);
+        if (!resolved) return;
 
+        if (this.isSameContent(this.currentContent, next)) return;
+
+        const duration = opts?.duration ?? 1.0;
+        const ease = opts?.ease ?? 'power2.out';
+
+        // 進行中の tween があれば中断
         if (this.transitionTween) {
             this.transitionTween.kill();
             this.transitionTween = null;
-            
-            if (this.pendingVideoIndex !== null && this.pendingVideoIndex !== videoIndex) {
-                console.log('🛑 Stopping pending video:', this.pendingVideoIndex);
-                if (this.videos[this.pendingVideoIndex]) {
-                    this.videos[this.pendingVideoIndex].pause();
-                }
+
+            // pending（再生中だが未完了の動画）が別ターゲットなら停止
+            if (this.pendingContent && !this.isSameContent(this.pendingContent, next)) {
+                console.log('🛑 Stopping pending content:', this.pendingContent);
+                this.pauseContent(this.pendingContent);
             }
-            this.pendingVideoIndex = null;
+            this.pendingContent = null;
         }
-        
+
         const uniforms = this.plateShaderMaterial.uniforms;
-        if (uniforms.fadeOutProgress.value > 0 && this.currentVideoIndex !== null) {
-            console.log('🛑 Stopping fadeOut video:', this.currentVideoIndex);
-            if (this.videos[this.currentVideoIndex]) {
-                this.videos[this.currentVideoIndex].pause();
-            }
+
+        // fadeOut の途中なら現在コンテンツを破棄
+        if (uniforms.fadeOutProgress.value > 0 && this.currentContent) {
+            console.log('🛑 Stopping fadeOut content:', this.currentContent);
+            this.pauseContent(this.currentContent);
             this.currentTexture = null;
-            this.currentVideoIndex = null;
+            this.currentContent = null;
         }
 
-        const nextTexture = this.worksPlateVideoTextures[videoIndex];
-        const nextVideo = this.videos[videoIndex];
+        const nextTexture = resolved.texture;
+        const nextSource = resolved.source;
 
-        try { nextVideo.currentTime = 0; } catch(e) {}
-        nextVideo.loop = true;
-        nextVideo.play().catch(() => {});
-
+        this.playContent(next);
         this.worksPlate.material = this.plateShaderMaterial;
-        
-        const calcUVTransform = (video: HTMLVideoElement) => {
-            const plateAspect = 1;
-            const videoAspect = video.videoWidth / video.videoHeight || 16/9;
-            
-            if (videoAspect > plateAspect) {
-                const scale = plateAspect / videoAspect;
-                return { scale: new THREE.Vector2(scale, 1), offset: new THREE.Vector2((1 - scale) / 2, 0) };
-            } else {
-                const scale = videoAspect / plateAspect;
-                return { scale: new THREE.Vector2(1, scale), offset: new THREE.Vector2(0, (1 - scale) / 2) };
-            }
-        };
-        
-        const nextUV = calcUVTransform(nextVideo);
-        
-        const prevTexture = this.currentTexture || nextTexture;
-        const prevVideoIdx = this.currentVideoIndex;
-        const prevVideo = prevVideoIdx !== null ? this.videos[prevVideoIdx] : nextVideo;
-        const prevUV = calcUVTransform(prevVideo);
 
-        const prevColor = prevVideoIdx !== null ? this.getDominantColor(prevVideo) : new THREE.Color(0, 0, 0);
-        const nextColor = this.getDominantColor(nextVideo);
-        
+        const nextUV = this.calcUVTransform(nextSource);
+
+        const prevTexture = this.currentTexture || nextTexture;
+        const prevContent = this.currentContent;
+        const prevResolved = prevContent ? this.resolveContent(prevContent) : null;
+        const prevSource = prevResolved?.source ?? nextSource;
+        const prevUV = this.calcUVTransform(prevSource);
+
+        const prevColor = prevResolved
+            ? this.getDominantColor(prevResolved.source)
+            : new THREE.Color(0, 0, 0);
+        const nextColor = this.getDominantColor(nextSource);
+
         uniforms.textureA.value = prevTexture;
         uniforms.textureB.value = nextTexture;
         uniforms.uvScaleA.value = prevUV.scale;
@@ -426,104 +597,93 @@ export class WebGLSceneController {
         uniforms.useTexture.value = 1.0;
         uniforms.progress.value = 0.0;
         uniforms.fadeOutProgress.value = 0.0;
-        uniforms.time.value = Math.random() * 1000.0;
-        
+        // imageMode: 画像コンテンツの場合のみ ON（うっすら表示 + カーソルスポット）
+        uniforms.imageMode.value = next.kind === 'image' ? 1.0 : 0.0;
+
         const progressObj = { value: 0.0 };
-        const prevVideoIndex = this.currentVideoIndex;
-        
-        this.pendingVideoIndex = videoIndex;
-        
-        console.log('🎬 Starting transition animation', { from: prevVideoIndex, to: videoIndex });
-        
-        this.transitionTween = gsap.to(progressObj, { 
-            value: 1.0, 
-            duration: 1.0,
-            ease: 'power2.out',
+        const prevContentSnapshot = prevContent;
+
+        this.pendingContent = next;
+
+        console.log('🎬 Starting transition', { from: prevContent, to: next });
+
+        this.transitionTween = gsap.to(progressObj, {
+            value: 1.0,
+            duration,
+            ease,
             onUpdate: () => {
                 uniforms.progress.value = progressObj.value;
-                console.log('📊 Progress:', progressObj.value.toFixed(3));
             },
             onComplete: () => {
                 console.log('✅ Transition complete');
-                if (prevVideoIndex !== null && this.videos[prevVideoIndex]) {
-                    this.videos[prevVideoIndex].pause();
-                }
+                this.pauseContent(prevContentSnapshot);
                 this.currentTexture = nextTexture;
-                this.currentVideoIndex = videoIndex;
-                this.pendingVideoIndex = null;
+                this.currentContent = next;
+                this.pendingContent = null;
                 this.transitionTween = null;
             }
         });
     }
 
-    private updatePlateTextureAspect(texture: THREE.VideoTexture, videoWidth: number, videoHeight: number) {
-        const plateAspect = 1;
-        const videoAspect = videoWidth / videoHeight;
+    /** worksPlate を baseColor へフェードアウトしてクリア */
+    private clearPlate(opts?: { duration?: number; ease?: string }) {
+        const duration = opts?.duration ?? 1.0;
+        const ease = opts?.ease ?? 'power2.out';
 
-        if (videoAspect > plateAspect) {
-            const scale = plateAspect / videoAspect;
-            texture.repeat.set(scale, 1);
-            texture.offset.set((1 - scale) / 2, 0);
-        } else {
-            const scale = videoAspect / plateAspect;
-            texture.repeat.set(1, scale);
-            texture.offset.set(0, (1 - scale) / 2);
-        }
-    }
-
-    private clearVideoFromWorksPlate() {
         if (this.transitionTween) {
             this.transitionTween.kill();
             this.transitionTween = null;
-            
-            if (this.pendingVideoIndex !== null) {
-                console.log('🛑 Promoting pending video to current for fadeout:', this.pendingVideoIndex);
-                this.currentVideoIndex = this.pendingVideoIndex;
-                this.currentTexture = this.worksPlateVideoTextures[this.pendingVideoIndex];
-                this.pendingVideoIndex = null;
+
+            if (this.pendingContent) {
+                console.log('🛑 Promoting pending to current for fadeout:', this.pendingContent);
+                this.currentContent = this.pendingContent;
+                const resolved = this.resolveContent(this.pendingContent);
+                this.currentTexture = resolved?.texture ?? null;
+                this.pendingContent = null;
             }
         }
-        
+
         const uniforms = this.plateShaderMaterial.uniforms;
-        
-        if (this.currentTexture && this.currentVideoIndex !== null) {
-            const currentColor = this.getDominantColor(this.videos[this.currentVideoIndex]);
-            const currentVideoIdx = this.currentVideoIndex;
-            
+
+        if (this.currentTexture && this.currentContent) {
+            const resolved = this.resolveContent(this.currentContent);
+            const currentColor = resolved
+                ? this.getDominantColor(resolved.source)
+                : new THREE.Color(0, 0, 0);
+            const currentContentSnapshot = this.currentContent;
+
             uniforms.colorA.value = currentColor;
             uniforms.colorB.value = new THREE.Color(0, 0, 0);
             uniforms.fadeOutProgress.value = 0.0;
-            uniforms.time.value = Math.random() * 1000.0;
-            
+
             const fadeObj = { value: 0.0 };
-            
-            console.log('🌙 Starting fade out animation');
-            
-            this.transitionTween = gsap.to(fadeObj, { 
-                value: 1.0, 
-                duration: 1.0,
-                ease: 'power2.out',
+
+            console.log('🌙 Starting fade out');
+
+            this.transitionTween = gsap.to(fadeObj, {
+                value: 1.0,
+                duration,
+                ease,
                 onUpdate: () => {
                     uniforms.fadeOutProgress.value = fadeObj.value;
-                    console.log('🌑 FadeOut:', fadeObj.value.toFixed(3));
                 },
                 onComplete: () => {
                     console.log('⬛ Fade out complete');
-                    if (currentVideoIdx !== null && this.videos[currentVideoIdx]) {
-                        this.videos[currentVideoIdx].pause();
-                    }
+                    this.pauseContent(currentContentSnapshot);
                     this.currentTexture = null;
-                    this.currentVideoIndex = null;
+                    this.currentContent = null;
                     uniforms.progress.value = 0.0;
                     uniforms.fadeOutProgress.value = 0.0;
                     uniforms.useTexture.value = 0.0;
+                    uniforms.imageMode.value = 0.0;
                     this.transitionTween = null;
                 }
             });
         } else {
             uniforms.useTexture.value = 0.0;
             uniforms.fadeOutProgress.value = 0.0;
-            this.currentVideoIndex = null;
+            uniforms.imageMode.value = 0.0;
+            this.currentContent = null;
         }
     }
 
@@ -537,11 +697,81 @@ export class WebGLSceneController {
         }
 
         items.forEach((el, idx) => {
-            el.addEventListener('mouseenter', () => this.showVideoOnWorksPlate(idx));
-            el.addEventListener('mouseleave', () => this.clearVideoFromWorksPlate());
-            el.addEventListener('focus', () => this.showVideoOnWorksPlate(idx));
-            el.addEventListener('blur', () => this.clearVideoFromWorksPlate());
+            const show = () => {
+                // Works セクション中だけ反応（About 等では強制表示を維持）
+                if (this.activeSection !== 'works') return;
+                this.showContentOnPlate({ kind: 'video', index: idx });
+            };
+            const clear = () => {
+                if (this.activeSection !== 'works') return;
+                this.clearPlate();
+            };
+            el.addEventListener('mouseenter', show);
+            el.addEventListener('mouseleave', clear);
+            el.addEventListener('focus', show);
+            el.addEventListener('blur', clear);
         });
+    }
+
+    // =========================================================
+    //  カーソル追跡（PC: About 画像のスポットリビール用）
+    // =========================================================
+
+    private onPointerMove = (e: PointerEvent) => {
+        // PC かつ About 中のみレイキャストして UV を取得
+        if (!this.isPC || this.activeSection !== 'about') return;
+        if (!this.worksPlate) return;
+
+        this.pointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
+        this.pointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.pointerNdc, this.camera);
+        const hits = this.raycaster.intersectObject(this.worksPlate, false);
+        if (hits.length > 0 && hits[0].uv) {
+            this.mouseUvTarget.copy(hits[0].uv);
+        }
+    };
+
+    /**
+     * About 画像演出のチューニング用 API（runtime からも呼べる）
+     * 例: webglScene.setAboutImageConfig({ baseReveal: 0.2 })
+     */
+    public setAboutImageConfig(partial: Partial<typeof this.aboutImageConfig>) {
+        Object.assign(this.aboutImageConfig, partial);
+        if (!this.plateShaderMaterial) return;
+        const u = this.plateShaderMaterial.uniforms;
+        u.imageBaseReveal.value = this.aboutImageConfig.baseReveal;
+        u.imageNoiseScale.value = this.aboutImageConfig.noiseScale;
+        u.imageNoiseSpeed.value = this.aboutImageConfig.noiseSpeed;
+        u.imageMouseRadius.value = this.aboutImageConfig.mouseRadius;
+        u.imageMouseSoftness.value = this.aboutImageConfig.mouseSoftness;
+        u.imageMouseStrength.value = this.isPC ? this.aboutImageConfig.mousePcStrength : 0.0;
+    }
+
+    // =========================================================
+    //  セクション遷移ハンドラ
+    // =========================================================
+
+    /** About エリアに入った時：画像を fadeIn 表示し、Works ホバーを無効化 */
+    private enterAboutZone() {
+        if (this.activeSection === 'about') return;
+        this.activeSection = 'about';
+        this.showContentOnPlate(
+            { kind: 'image', key: WebGLSceneController.ABOUT_IMAGE_KEY },
+            { duration: 1.8, ease: 'power3.out' }
+        );
+    }
+
+    /**
+     * About エリアから抜けた時：プレートをクリアし、進行方向に応じた次セクションへ。
+     * - backward: Works に戻る（ホバー再有効化）
+     * - forward : Photos へ向かう（プレートは引き続き出さない）
+     */
+    private leaveAboutZone(direction: 'forward' | 'backward') {
+        // 既に About 以外なら何もしない（多重発火対策）
+        if (this.activeSection !== 'about') return;
+        this.activeSection = direction === 'backward' ? 'works' : 'photos';
+        this.clearPlate({ duration: 1.2 });
     }
 
     scrollAnimations() {
@@ -582,6 +812,23 @@ export class WebGLSceneController {
                     this.theatreSheet.sequence.position = theatrePosition;
                 }
             });
+        });
+
+        // ----- About 区間のコンテンツ切替 -----
+        // 「About に到着したタイミング」で fadeIn したいので、
+        // sections[0]（Works→About 遷移）の完了 ～ sections[1]（About→Photos 遷移）の開始までの
+        // 「停留ゾーン」をトリガー範囲とする。
+        const aboutZoneStart = sections[0].scrollEnd;
+        const aboutZoneEnd = sections[1].scrollStart;
+        ScrollTrigger.create({
+            trigger: body,
+            start: `${aboutZoneStart} top`,
+            end: `${aboutZoneEnd} top`,
+            markers: false,
+            onEnter: () => this.enterAboutZone(),
+            onEnterBack: () => this.enterAboutZone(),
+            onLeave: () => this.leaveAboutZone('forward'),
+            onLeaveBack: () => this.leaveAboutZone('backward')
         });
 
             // tlWorkToAbout = gsap.timeline({
@@ -840,7 +1087,23 @@ export class WebGLSceneController {
 
     animate() {
         this.isDebug && this.stats.begin();
-        
+
+        // --- 画像モード用 uniforms 更新（time 進行 + カーソル UV の追従） ---
+        if (this.plateShaderMaterial) {
+            const now = performance.now() * 0.001; // 秒
+            const dt = this.lastFrameTime > 0 ? Math.min(now - this.lastFrameTime, 0.1) : 0.016;
+            this.lastFrameTime = now;
+
+            // time は常にゆっくり進める（ノイズアニメ用）
+            this.plateShaderMaterial.uniforms.time.value += dt;
+
+            // PC かつ About 中だけカーソル UV を追従させる
+            if (this.isPC && this.activeSection === 'about') {
+                const u = this.plateShaderMaterial.uniforms.imageMouseUv.value as THREE.Vector2;
+                u.lerp(this.mouseUvTarget, 0.18);
+            }
+        }
+
         const gl = this.renderer.getContext();
         
         gl.enable(gl.STENCIL_TEST);

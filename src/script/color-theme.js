@@ -2,9 +2,13 @@ const STORAGE_KEY = "pf-color-theme";
 
 const THEMES = [
   { name: "white", base: "#FFFFFF", accent: "#000000" },
-  { name: "yellow", base: "#F5CF39", accent: "#2E2F00" },
-  { name: "blue", base: "#4E9FF6", accent: "#6C2EAF" },
-  { name: "green", base: "#58AF48", accent: "#CE5316" },
+  // { name: "yellow", base: "#F5CF39", accent: "#2E2F00" },
+  { name: "yellow", base: "#F5CF39", accent: "#1d1e0c" },
+  // { name: "blue", base: "#4E9FF6", accent: "#6C2EAF" },
+  { name: "blue", base: "#4E9FF6", accent: "#48197b" },
+  // { name: "green", base: "#58AF48", accent: "#CE5316" },
+  { name: "green", base: "#31b68a", accent: "#CE5316" },
+  // { name: "green", base: "#58AF48", accent: "#aa4817" },
   { name: "black", base: "#1B1A1A", accent: "#B22123" },
 ];
 
