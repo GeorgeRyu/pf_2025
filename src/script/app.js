@@ -36,7 +36,8 @@ window.PFApp = function() {
         },
 
         anchorLink(target, isPcHeader = false) {
-            const distanceH = isPcHeader ? window.innerHeight : window.innerHeight * 1.5;
+            // scroll-animations / WebGL と同じ基準（innerHeight × 1.5）
+            const distanceH = window.innerHeight * 1.5;
             const distanceHeight = distanceH * 2 * (target - 1);
 
             !isPcHeader && (this.isMenuOpen = !this.isMenuOpen);
