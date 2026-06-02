@@ -9,6 +9,7 @@ import { getProject, types, type IProject, type ISheet } from "@theatre/core";
 // シェーダーをインポート
 import plateVertexShader from './shaders/plateVertex.glsl?raw';
 import plateFragmentShader from './shaders/plateFragment.glsl?raw';
+import { getScrollDistanceUnit, onScrollDistanceReset } from '../scroll-distance.js';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
@@ -87,6 +88,7 @@ export class WebGLSceneController {
     private pointerNdc = new THREE.Vector2();
     private mouseUvTarget = new THREE.Vector2(0.5, 0.5);
     private lastFrameTime: number = 0;
+    private webglScrollTriggers: ScrollTrigger[] = [];
     
     constructor() {
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
@@ -262,6 +264,7 @@ export class WebGLSceneController {
         await aboutImagePromise;
 
         this.scrollAnimations();
+        onScrollDistanceReset(() => this.rebuildScrollAnimations());
 
         window.addEventListener('resize', this.onWindowResize.bind(this));
     }
@@ -774,30 +777,34 @@ export class WebGLSceneController {
         this.clearPlate({ duration: 1.2 });
     }
 
+    private clearWebglScrollTriggers() {
+        this.webglScrollTriggers.forEach((trigger) => trigger.kill());
+        this.webglScrollTriggers = [];
+    }
+
+    rebuildScrollAnimations() {
+        this.clearWebglScrollTriggers();
+        this.attachScrollAnimations();
+        ScrollTrigger.refresh();
+    }
+
     scrollAnimations() {
-        const distanceHeight = window.innerHeight * 1.5;
+        this.attachScrollAnimations();
+    }
+
+    private attachScrollAnimations() {
+        const distanceHeight = getScrollDistanceUnit();
         const body = document.querySelector('body');
         const sequenceLength = this.sequenceLength;
 
-            // groupRectangles = this.groupRectangles,
-            // rac1 = this.rectangles[0],
-            // rac2 = this.rectangles[1],
-            // rac3 = this.rectangles[2],
-            // rac4 = this.rectangles[3],
-            // rac5 = this.rectangles[4],
-            // rac6 = this.rectangles[5],
-            // rac7 = this.rectangles[6],
-            // worksPlate = this.worksPlate;
-
-        // 20%以降の4つのセクションを定義
         const sections = [
             { start: 0.2, end: 0.4, scrollStart: distanceHeight * 0.5, scrollEnd: distanceHeight * 2 },
             { start: 0.4, end: 0.6, scrollStart: distanceHeight * 2.5, scrollEnd: distanceHeight * 4 },
             { start: 0.6, end: 0.8, scrollStart: distanceHeight * 4.5, scrollEnd: distanceHeight * 6 },
             { start: 0.8, end: 1.0, scrollStart: distanceHeight * 6.5, scrollEnd: distanceHeight * 8 }
         ];
-        sections.forEach((section, index) => {
-            ScrollTrigger.create({
+        sections.forEach((section) => {
+            const trigger = ScrollTrigger.create({
                 trigger: body,
                 start: `${section.scrollStart} top`,
                 end: `${section.scrollEnd} top`,
@@ -808,21 +815,18 @@ export class WebGLSceneController {
                     const theatreStart = section.start * sequenceLength;
                     const theatreEnd = section.end * sequenceLength;
                     const theatrePosition = theatreStart + (theatreEnd - theatreStart) * progress;
-                    
+
                     this.theatreSheet.sequence.position = theatrePosition;
                 }
             });
+            this.webglScrollTriggers.push(trigger);
         });
 
-        // ----- About 区間のコンテンツ切替 -----
-        // 「About に到着したタイミング」で fadeIn したいので、
-        // sections[0]（Works→About 遷移）の完了 ～ sections[1]（About→Photos 遷移）の開始までの
-        // 「停留ゾーン」をトリガー範囲とする。
         const aboutZoneStart = sections[0].scrollEnd;
         const aboutZoneEnd = sections[1].scrollStart;
-        ScrollTrigger.create({
+        const aboutTrigger = ScrollTrigger.create({
             trigger: body,
-            start: `${aboutZoneStart} top`,
+            start: `${aboutZoneStart} center`,
             end: `${aboutZoneEnd} top`,
             markers: false,
             onEnter: () => this.enterAboutZone(),
@@ -830,213 +834,7 @@ export class WebGLSceneController {
             onLeave: () => this.leaveAboutZone('forward'),
             onLeaveBack: () => this.leaveAboutZone('backward')
         });
-
-            // tlWorkToAbout = gsap.timeline({
-            //     scrollTrigger: {
-            //         trigger: body,
-            //         start: `${distanceHeight} bottom-=10%`,
-            //         end: `${distanceHeight * 2} center`,
-            //         scrub: true,
-            //         markers: false
-            //     }
-            // }),
-            // tlAboutToPhotos = gsap.timeline({
-            //     scrollTrigger: {
-            //         trigger: body,
-            //         start: `${distanceHeight * 3.5} bottom`,
-            //         end: `${distanceHeight * 4} center`,
-            //         scrub: true,
-            //         markers: false,
-            //     }
-            // }),
-            // tlPhotosToPlayground = gsap.timeline({
-            //     scrollTrigger: {
-            //         trigger: body,
-            //         start: `${distanceHeight * 5.5} bottom`,
-            //         end: `${distanceHeight * 6} center`,
-            //         scrub: true,
-            //         markers: false
-            //     }
-            // });
-
-        let mm = gsap.matchMedia();
-
-        // this.bindObject3D("groupRectangles", this.groupRectangles);
-        // // rectangles（rac1〜rac7）
-        // this.rectangles.forEach((m, i) => {
-        //     this.bindObject3D(`rac${i + 1}`, m);
-        // });
-        // // worksPlate
-        // this.bindObject3D("worksPlate", this.worksPlate);
-
-
-        // mm.add('(max-width: 1023px)', () => {
-        //     tlWorkToAbout
-        //         .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
-        //         .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
-        //         .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
-        //         .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
-        //         .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
-        //         .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
-        //         .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
-        //         .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(groupRectangles.position, { x: -13.5, y: -13, z: 10, duration: 1.8, ease: 'easeOut01' }, '0.8')
-        //         .to(groupRectangles.rotation, { z: -0.7, duration: 1.8, ease: 'easeOut01' }, '<')
-        //         .to(worksPlate.position, {y: -6, z: -10, duration: 0.5, ease: 'easeOut01' }, '<')
-        //         .to(worksPlate.position, {x: -10, y: -11.0, z: -21, duration: 1.1, ease: 'easeIn01' })
-        //         ;
-
-        //     tlAboutToPhotos
-        //         .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
-        //         .to(groupRectangles.position, { x: 1, y: -1, z: 10, duration: 1.5, ease: 'power3.inOut' }, '<')
-        //         .to(worksPlate.position, {x: 0, y: 0, z: 0, duration: 1.0, ease: 'easeOut01' }, '<')
-        //         .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(groupRectangles.rotation, { z: 0, x: (Math.PI / 2), duration: 1.5, ease: 'power3.inOut' })
-        //         .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
-        //         .to(groupRectangles.position, { y: -1.8, z: 4, duration: 1.5, ease: 'easeOut01' }, '<')
-        //         .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
-        //         .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
-        //         .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(groupRectangles.position, { z: 8.6, duration: 1.5, ease: 'easeOut01' })
-        //         .to(rac2.position, { x: -2.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: 0.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac1.position, { x: 0.1, z: 0.7628, duration: 1.5, ease: 'power3.out' }, '<+=0.075')
-        //         .to(rac7.position, { x: -2.1, z: -1.8884, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 1.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -3.2, z: -0.5628, duration: 1.5, ease: 'power3.out' }, '<');
-
-        //     tlPhotosToPlayground  
-        //         .to(groupRectangles.position, { z: -10, y: -6, duration: 1.5, ease: 'power3.inOut' })
-        //         .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<') 
-        //         .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
-        //         .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-
-        //         .to(groupRectangles.position, { z: 0, y: -4.5, duration: 1.5, ease: 'power3.inOut' })
-        //         .to(rac4.position, { x: -14.5, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to([rac3.position, rac5.position], { x: -17, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to([rac2.position, rac6.position], { x: -19.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to([rac1.position, rac7.position], { x: -22, duration: 1, ease: 'power3.inOut' }, '<+0.1');
-        // });
-
-        // mm.add('(min-width: 1024px)', () => {
-        //     tlWorkToAbout
-        //         .to(rac1.position, { x: 4, duration: 1, ease: 'easeOut01' })
-        //         .to(rac2.position, { x: 1.8, duration: 1, ease: 'easeOut01' }, '0.2')
-        //         .to(rac2.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac3.position, { x: -0.4, duration: 1, ease: 'easeOut01' }, '0.4')
-        //         .to(rac3.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac4.position, { x: -2.6, duration: 1, ease: 'easeOut01' }, '0.6')
-        //         .to(rac4.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac5.position, { x: -4.8, duration: 1, ease: 'easeOut01' }, '0.8')
-        //         .to(rac5.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac6.position, { x: -7, duration: 1, ease: 'easeOut01' }, '1')
-        //         .to(rac6.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(rac7.position, { x: -9.2, duration: 1, ease: 'easeOut01' }, '1.2')
-        //         .to(rac7.rotation, { z: 0, duration: 1, ease: 'easeOut01' }, '<')
-        //         .to(groupRectangles.position, { x: -12.32, y: -14, z: 1.6, duration: 1.8, ease: 'easeOut01' }, '0.8')
-        //         .to(groupRectangles.rotation, { z: -0.50265, duration: 1.8, ease: 'easeOut01' }, '<')
-        //         .to(worksPlate.position, { x: -15.5, y: -1.2, z: -19, duration: 0.6, ease: 'easeOut01' }, '<')
-        //         .to(worksPlate.position, { x: -14.8, y: -5.5, z: -19, duration: 0.6, ease: 'easeIn01' })
-        //         ;
-
-        //     tlAboutToPhotos
-        //         .to([rac1.position, rac2.position, rac3.position, rac4.position, rac5.position, rac6.position, rac7.position], { y: 5, duration: 1, ease: 'easeOut01', stagger: 0.1 })
-        //         .to(groupRectangles.position, { x: 1, y: -1, z: -0.9, duration: 1.5, ease: 'power3.inOut' }, '<')
-        //         .to(worksPlate.position, { x: 0, y: 0, z: -6.0, duration: 0.9, ease: 'easeOut01' }, '<')
-        //         .to(rac1.position, { x: 5, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac2.position, { x: 3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: -5, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac7.position, { x: -7, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(groupRectangles.rotation, {x: (Math.PI / 2), z: 0, duration: 1.5, ease: 'power3.inOut' })
-        //         .to(groupRectangles.scale, { y: 0.001, duration: 1.5, ease: 'easeOut01' }, '<')
-        //         .to(groupRectangles.position, { y: -0.7, z: 1.66, duration: 1.5, ease: 'easeOut01' }, '<')
-        //         .to([rac1.scale, rac2.scale, rac3.scale, rac4.scale, rac5.scale, rac6.scale, rac7.scale], { z: 1, duration: 1, ease: 'easeOut01' }, '1.2')
-        //         .to(rac1.position, { x: 5.3, duration: 1.5, ease: 'power3.out' })
-        //         .to(rac2.position, { x: 3.2, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 1.1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -3.1, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: -5.2, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac7.position, { x: -7.3, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac1.position, { x: 2.6, z: -0.6628, duration: 1.5, ease: 'power3.out' })
-        //         .to(rac2.position, { x: 2.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac3.position, { x: 0.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac4.position, { x: -1, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac5.position, { x: -2.2, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac6.position, { x: -4.6, z: 0.6628, duration: 1.5, ease: 'power3.out' }, '<')
-        //         .to(rac7.position, { x: -4.6, z: -0.6628, duration: 1.5, ease: 'power3.out' }, '<');
-
-        //     tlPhotosToPlayground
-        //         .to(groupRectangles.position, {y: -1,  z: -20, duration: 1.5, ease: 'power3.inOut' })                
-        //         .to(groupRectangles.scale, { y: 1, duration: 1.5, ease: 'power3.inOut' }, '<')
-                
-        //         .to(rac7.position, { z: 3.485, x: 0, duration: 1, ease: 'power3.inOut' }, '0.3')
-        //         .to(rac7.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac7.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac6.position, { z: 2.135, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac6.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac6.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac5.position, { z: 0.7825, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac5.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac5.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac4.position, { z: -0.5625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac4.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac4.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac3.position, { z: -1.9125, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac3.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac3.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac2.position, { z: -3.2625, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac2.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac2.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac1.position, { z: -4.6215, x: 0, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to(rac1.rotation, { z: Math.PI / -2, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to(rac1.scale, { x: 0.001, duration: 1, ease: 'power3.inOut' }, '<')
-
-        //         .to(groupRectangles.position, { z: -10, y: -1, duration: 1.5, ease: 'power3.inOut' })
-        //         .to(rac4.position, { x: -18.5, duration: 1, ease: 'power3.inOut' }, '<')
-        //         .to([rac3.position, rac5.position], { x: -22.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to([rac2.position, rac6.position], { x: -26.5, duration: 1, ease: 'power3.inOut' }, '<+0.1')
-        //         .to([rac1.position, rac7.position], { x: -30.5, duration: 1, ease: 'power3.inOut' }, '<+0.1');
-        // });
+        this.webglScrollTriggers.push(aboutTrigger);
     }
 
     debug() {

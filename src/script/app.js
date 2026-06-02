@@ -2,6 +2,7 @@ import { ScrollAnimations } from "./scroll-animations.js";
 import { LenisSmoothScroll } from "./lenis-smooth-scroll.js";
 import { ProjectModal } from "./project-modal.js";
 import { ColorTheme } from "./color-theme.js";
+import { getAnchorScrollTop, initScrollDistanceResize } from "./scroll-distance.js";
 import Alpine from "alpinejs";
 
 // PFApp関数をグローバルに定義（Alpine.jsの初期化前に実行）
@@ -36,9 +37,7 @@ window.PFApp = function() {
         },
 
         anchorLink(target, isPcHeader = false) {
-            // scroll-animations / WebGL と同じ基準（innerHeight × 1.5）
-            const distanceH = window.innerHeight * 1.5;
-            const distanceHeight = distanceH * 2 * (target - 1);
+            const distanceHeight = getAnchorScrollTop(target);
 
             !isPcHeader && (this.isMenuOpen = !this.isMenuOpen);
             
@@ -91,7 +90,8 @@ export class App {
         this.lenisSmoothScroll = new LenisSmoothScroll();
         this.colorTheme = new ColorTheme();
         this.projectModal = new ProjectModal();
-        
-        new ScrollAnimations();
+
+        window.scrollAnimations = new ScrollAnimations();
+        initScrollDistanceResize();
     }
 }
