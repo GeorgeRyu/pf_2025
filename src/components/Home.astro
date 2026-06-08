@@ -44,8 +44,18 @@ const playgrounds = [
 ---
 
 <main class="relative h-[1400vh] bg-base">
-    <!-- <WebGLScene movies={projects.slice(0,8).map(p => p.moviePc)} /> -->
-    <WebGLScene movies={projects.map(p => p.moviePc)} />
+    <WebGLScene
+        movies={projects.map(p => p.moviePc)}
+        photos={[
+            '/images/photos/photos-1.JPG',
+            '/images/photos/photos-2.JPG',
+            '/images/photos/photos-3.JPG',
+            '/images/photos/photos-4.JPG',
+            '/images/photos/photos-5.JPG',
+            '/images/photos/photos-6.JPG',
+            '/images/photos/photos-7.JPG',
+        ]}
+    />
 
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-accent z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
 		<div class="relative col-start-3 justify-self-start lg:hidden">
