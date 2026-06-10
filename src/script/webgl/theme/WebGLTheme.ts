@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { PhotosPillarPlanes } from '../scene/PhotosPillarPlanes';
 
 const THEME_CHANGE_EVENT = 'pf:color-theme-change';
 
@@ -15,6 +16,7 @@ export function readCssVarColor(varName: string, fallbackHex: string): THREE.Col
 export type WebGLThemeTargets = {
     getRectangleMaterials: () => THREE.MeshBasicMaterial[];
     getPlateShaderMaterial: () => THREE.ShaderMaterial | undefined;
+    getPhotosPillarPlanes?: () => PhotosPillarPlanes | undefined;
 };
 
 /**
@@ -35,6 +37,12 @@ export class WebGLTheme {
             (u.baseColor.value as THREE.Color).copy(accent);
             (u.duotoneLight.value as THREE.Color).copy(base);
             (u.duotoneDark.value as THREE.Color).copy(accent);
+        }
+
+        // Photos: light=--c-base, dark=--c-accent（plateFragment と同じ2色）
+        const photos = this.targets.getPhotosPillarPlanes?.();
+        if (photos) {
+            photos.setDuotoneColors(base, accent);
         }
     }
 

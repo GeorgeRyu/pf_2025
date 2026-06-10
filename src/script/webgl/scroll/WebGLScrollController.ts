@@ -103,11 +103,12 @@ export class WebGLScrollController {
         this.scrollTriggers.push(aboutTrigger);
 
         // Photos ゾーン: sections[1] 〜 sections[2].scrollStart
-        const photosZoneStart = sections[1].scrollStart;
+        // const photosZoneStart = sections[1].scrollStart;
+        const photosZoneStart = sections[1].scrollEnd;
         const photosZoneEnd = sections[2].scrollStart;
         const photosTrigger = ScrollTrigger.create({
             trigger: body,
-            start: `${photosZoneStart} top`,
+            start: `${photosZoneStart} 10%`,
             end: `${photosZoneEnd} top`,
             markers: false,
             onEnter: () => this.enterPhotosZoneFromForward(),

@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
+import type { PhotosPillarPlanes } from '../scene/PhotosPillarPlanes';
 
 export type PhotosInteractionDeps = {
     getCamera: () => THREE.PerspectiveCamera;
     getRenderer: () => THREE.WebGLRenderer;
     getDefaultCameraZ: () => number;
     getDefaultCameraXY: () => { x: number; y: number };
+    getPhotosPillarPlanes: () => PhotosPillarPlanes | undefined;
 };
 
 /**
@@ -68,12 +70,11 @@ export class PhotosInteractionController {
         const fovRad = (camera.fov * Math.PI) / 180;
         const aspect = window.innerWidth / window.innerHeight;
 
-        // planeのworldZ
         const worldPos = new THREE.Vector3();
         plane.getWorldPosition(worldPos);
 
         // 画面横幅一杯になるカメラZ: planeWidth / (2 * tan(fov/2) * aspect) + planeZ
-        const planeWidth = 2; // PLANE_WIDTH in local = 2、scaleは親rect.scale.x=1
+        const planeWidth = 2;
         const targetZ = worldPos.z + planeWidth / (2 * Math.tan(fovRad / 2) * aspect);
 
         this.isZoomed = true;
@@ -91,10 +92,20 @@ export class PhotosInteractionController {
             duration: 1.0,
             ease: 'power3.out',
         });
+
+        // duotone → オリジナルカラーへじわっと遷移
+        this.deps.getPhotosPillarPlanes()?.toOriginal(plane);
     }
 
     private zoomOut() {
         if (this.cameraTween) this.cameraTween.kill();
+
+        // 状態を即座にリセット（トゥイーン完了を待たない。kill() で onComplete が呼ばれないため）
+        const zoomedPlane = this.zoomedPlane;
+        this.isZoomed = false;
+        this.zoomedPlane = null;
+        const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
+        lenis?.start();
 
         const camera = this.deps.getCamera();
         const defaultZ = this.deps.getDefaultCameraZ();
@@ -106,12 +117,9 @@ export class PhotosInteractionController {
             z: defaultZ,
             duration: 0.9,
             ease: 'power3.out',
-            onComplete: () => {
-                const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
-                lenis?.start();
-                this.isZoomed = false;
-                this.zoomedPlane = null;
-            },
         });
+
+        // オリジナルカラー → duotone へじわっと遷移
+        this.deps.getPhotosPillarPlanes()?.toDuotone(zoomedPlane);
     }
 }

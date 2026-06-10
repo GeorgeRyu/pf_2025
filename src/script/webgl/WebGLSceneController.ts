@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
-// import studio from '@theatre/studio';
+import studio from '@theatre/studio';
 import { WebGLSceneContext } from './core/WebGLSceneContext';
 import { PlateContentController } from './content/PlateContentController';
 import { WebGLScrollController } from './scroll/WebGLScrollController';
@@ -54,6 +54,9 @@ export class WebGLSceneController {
         this.context = new WebGLSceneContext(container);
 
         this.isDebug = false;
+        if (new URLSearchParams(location.search).has('debug') && studio) {    
+            studio.initialize();
+        }
 
         const moviesStr = container?.getAttribute('data-movies') || '';
         try {
@@ -82,6 +85,7 @@ export class WebGLSceneController {
             getRenderer: () => this.context.renderer,
             getDefaultCameraZ: () => this.defaultCameraZ,
             getDefaultCameraXY: () => ({ x: this.defaultCameraX, y: this.defaultCameraY }),
+            getPhotosPillarPlanes: () => this.photosPillarPlanes,
         });
 
         this.scroll = new WebGLScrollController({
@@ -100,6 +104,7 @@ export class WebGLSceneController {
         this.theme = new WebGLTheme({
             getRectangleMaterials: () => this.rectangleMaterials,
             getPlateShaderMaterial: () => this.plateShaderMaterial,
+            getPhotosPillarPlanes: () => this.photosPillarPlanes,
         });
 
         this.init();
@@ -204,6 +209,9 @@ export class WebGLSceneController {
 
         await aboutImagePromise;
         await photosPromise;
+
+        // photos ロード完了後にテーマ色を反映（ロード前に theme.apply が走っているため再実行）
+        this.theme.apply();
 
         this.scroll.setActiveSection('works');
         this.scroll.attach();
