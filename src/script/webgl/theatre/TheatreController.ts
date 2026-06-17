@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import gsap from 'gsap';
-import { getProject, types, type IProject, type ISheet } from '@theatre/core';
+import { getProject, types, createRafDriver, type IProject, type ISheet, type IRafDriver } from '@theatre/core';
 
 export type TheatreBindTargets = {
     groupRectangles: THREE.Group;
@@ -15,6 +15,7 @@ export class TheatreController {
     private theatreProject!: IProject;
     private theatreSheet!: ISheet;
     private sequenceLength = 20;
+    private rafDriver!: IRafDriver;
 
     getSheet(): ISheet {
         return this.theatreSheet;
@@ -24,7 +25,14 @@ export class TheatreController {
         return this.sequenceLength;
     }
 
+    /** レンダーループから毎フレーム呼ぶ。Studio なしで onValuesChange を発火させる。 */
+    tick(time: number) {
+        this.rafDriver?.tick(time);
+    }
+
     async init(targets: TheatreBindTargets): Promise<void> {
+        this.rafDriver = createRafDriver({ name: 'three-render-loop' });
+
         const isMobile = window.innerWidth <= 1023;
         const projectName = isMobile ? 'sevenLinesMotionSP' : 'sevenLinesMotionPC';
         let projectState = null;
@@ -119,6 +127,6 @@ export class TheatreController {
             obj.position.set(v.position.x, v.position.y, v.position.z);
             obj.rotation.set(v.rotation.x, v.rotation.y, v.rotation.z);
             obj.scale.set(v.scale.x, v.scale.y, v.scale.z);
-        });
+        }, this.rafDriver);
     }
 }

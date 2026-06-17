@@ -9,6 +9,7 @@ export type WebGLRenderLoopDeps = {
     getActiveSection: () => ActiveSection;
     getMouseUvTarget: () => THREE.Vector2;
     getPhotoPlanesGroup?: () => THREE.Group | null;
+    onTick?: (time: number) => void;
     onFrameStart?: () => void;
     onFrameEnd?: () => void;
 };
@@ -62,6 +63,7 @@ export class WebGLSceneContext {
     }
 
     private renderFrame(deps: WebGLRenderLoopDeps) {
+        deps.onTick?.(performance.now());
         deps.onFrameStart?.();
 
         const plateShaderMaterial = deps.getPlateShaderMaterial();

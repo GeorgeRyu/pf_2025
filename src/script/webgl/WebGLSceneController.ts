@@ -53,9 +53,19 @@ export class WebGLSceneController {
         const container = document.getElementById('webgl-container');
         this.context = new WebGLSceneContext(container);
 
-        this.isDebug = false;
-        if (new URLSearchParams(location.search).has('debug') && studio) {    
-            studio.initialize();
+        // ?debug=lil → lil-gui + stats.js  / ?debug=theatre → Theatre Studio UI
+        const debugParam = new URLSearchParams(location.search).get('debug');
+        this.isDebug = debugParam === 'lil';
+        const isTheatre = debugParam === 'theatre';
+
+        // Studio は常に初期化（Core の ticker / onValuesChange に必要）
+        studio.initialize();
+        if (isTheatre) {
+            // ?debug=theatre → Studio UI を表示（localStorage の hidden 状態を上書き）
+            studio.ui.restore();
+        } else {
+            // それ以外 → Studio UI を隠す
+            studio.ui.hide();
         }
 
         const moviesStr = container?.getAttribute('data-movies') || '';
@@ -133,6 +143,7 @@ export class WebGLSceneController {
             getActiveSection: () => this.scroll.getActiveSection(),
             getMouseUvTarget: () => this.mouseUvTarget,
             getPhotoPlanesGroup: () => this.photosPillarPlanes.group,
+            onTick: (time) => this.theatre.tick(time),
             onFrameStart: () => {
                 if (this.isDebug) this.debugPanel?.stats.begin();
             },
