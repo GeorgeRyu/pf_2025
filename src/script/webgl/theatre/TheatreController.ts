@@ -41,29 +41,23 @@ export class TheatreController {
             if (isMobile) {
                 const spData = await import('../../../json/spAnimation.json');
                 projectState = spData.default;
-                console.log('📱 SP animation will be loaded (when available)');
             } else {
                 const pcData = await import('../../../json/pcAnimation.json');
                 projectState = pcData.default;
-                console.log('💻 PC animation JSON loaded');
             }
         } catch (error) {
-            console.error('❌ Failed to load animation JSON:', error);
+            console.warn('Failed to load animation JSON:', error);
         }
 
         if (projectState) {
-            console.log('✅ Loading project with saved state');
             this.theatreProject = getProject(projectName, { state: projectState });
         } else {
-            console.log('🆕 Creating new project (no saved state)');
             this.theatreProject = getProject(projectName);
         }
 
         const sheetName = projectState?.sheetsById
             ? Object.keys(projectState.sheetsById)[0]
             : 'sevenLinesMotion';
-
-        console.log('📄 Sheet name:', sheetName);
 
         this.theatreSheet = this.theatreProject.sheet(sheetName);
 
@@ -72,20 +66,16 @@ export class TheatreController {
         if (projectState?.sheetsById?.[sheetName]?.sequence?.length) {
             this.sequenceLength = projectState.sheetsById[sheetName].sequence.length;
         }
-        console.log('📏 Sequence length:', this.sequenceLength);
 
         this.bindObject3D('groupRectangles', targets.groupRectangles);
         targets.rectangles.forEach((rect, i) => {
             this.bindObject3D(`rac${i + 1}`, rect);
         });
         this.bindObject3D('worksPlate', targets.worksPlate);
-
-        console.log('✅ Theatre.js binding complete');
     }
 
     async playLoadingAnimation(): Promise<void> {
         const loadingEndPosition = this.sequenceLength * 0.2;
-        console.log('🎬 Loading animation: 0 → ', loadingEndPosition);
 
         this.theatreSheet.sequence.position = 0;
 

@@ -52,10 +52,5 @@ export class WebGLDebugPanel {
         worksPlateGroup.add(worksPlate.position, 'y', -50, 50).name('Works Plate Pos Y');
         worksPlateGroup.add(worksPlate.position, 'z', -50, 50).name('Works Plate Pos Z');
 
-        document.addEventListener('scroll', () => {
-            const g = deps.getGroupRectangles();
-            console.log('groupRectangles pos:', g.position.x, g.position.y, g.position.z);
-            console.log('groupRectangles rot:', g.rotation.x, g.rotation.y, g.rotation.z);
-        });
     }
 }
