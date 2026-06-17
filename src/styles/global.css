@@ -91,6 +91,9 @@ body::-webkit-scrollbar-thumb {
     background: var(--color-white01);
     border-radius: 0;
 }
+/* Alpine.js 初期化前にx-show要素が一瞬表示されるのを防ぐ */
+[x-cloak] { display: none !important; }
+
 /* iOS: fixed overlay 内で article を確実にスクロールさせる */
 [data-name="modal-container"] article {
     overflow-y: auto;                 /* 念のため明示 */

@@ -15,7 +15,7 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
     </div>
 </header>
 
-<nav x-show="isSoundMenuOpen" id="sound-setting" class="fixed top-0 left-0 grid-cols-1 gap-y-4 w-full h-auto text-base bg-accent py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-more-40 lg:left-auto lg:right-s-20-60 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-20 lg:pb-more-20">
+<nav x-show="isSoundMenuOpen" x-cloak id="sound-setting" class="fixed top-0 left-0 grid-cols-1 gap-y-4 w-full h-auto text-base bg-accent py-s-20-60 px-s-16-60 z-[999] lg:gap-y-6 lg:top-more-40 lg:left-auto lg:right-s-20-60 lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*2+1rem)] lg:px-more-30 lg:pt-more-20 lg:pb-more-20">
     <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="bg-sound-setting" class="absolute top-0 left-0 w-full h-screen z-10 lg:top-auto lg:left-auto lg:-right-s-20-60 lg:-bottom-more-20 lg:w-screen"></div>
     <div @click="isSoundMenuOpen = !isSoundMenuOpen" id="btn-close-sound-setting" class="relative flex justify-end z-20 ml-auto cursor-pointer lg:row-start-2">
         <span>close</span>
@@ -70,7 +70,7 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
     </div>
 </nav>
 
-<nav id="menu" data-name="menu" :class="{ 'grid': isMenuOpen, 'hidden': !isMenuOpen }" class="menu fixed left-0 bottom-0 w-full grid-cols-2 gap-x-[8px] pb-s-20-60 pt-16 px-s-16-60 bg-accent text-base z-[999]">
+<nav id="menu" data-name="menu" :class="{ 'grid': isMenuOpen, 'hidden': !isMenuOpen }" class="menu hidden fixed left-0 bottom-0 w-full grid-cols-2 gap-x-[8px] pb-s-20-60 pt-16 px-s-16-60 bg-accent text-base z-[999]">
     <div @click="isMenuOpen = !isMenuOpen" data-name="bg-menu" class="absolute bottom-0 left-0 w-full h-screen z-10"></div>
     <div class="relative grid grid-cols-1 gap-y-20 z-20">
         <div class="grid gap-y-8">
