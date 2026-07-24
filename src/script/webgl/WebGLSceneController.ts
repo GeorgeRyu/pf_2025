@@ -216,10 +216,34 @@ export class WebGLSceneController {
             rectangles: this.rectangles,
             worksPlate: this.worksPlate,
         });
-        await this.theatre.playLoadingAnimation();
 
-        await aboutImagePromise;
-        await photosPromise;
+        // Theatre が position=0 をセットした後にcanvasをフェードイン表示
+        const webglContainer = document.getElementById('webgl-container');
+        if (webglContainer) {
+            webglContainer.style.transition = 'opacity 0.3s';
+            webglContainer.style.opacity = '1';
+        }
+
+        // 動画プリロード開始（Phase1の進捗取得用）
+        const { getProgress, promise: videosLoaded } = this.plateContent.preloadVideos();
+
+        // ローディングアニメーション（Phase1: 動画進捗連動 / Phase2: tween）
+        await this.theatre.playLoadingAnimation(getProgress, () => {
+            const fadeInItems = gsap.utils.toArray('[loading-name="text"]');
+
+            if (fadeInItems.length > 0) {
+                gsap.to(fadeInItems, {
+                    duration: 1,
+                    opacity: 1,
+                    stagger: {
+                        amount: 1,
+                        from: 'random',
+                    }
+                });
+            }
+        });
+
+        await Promise.all([aboutImagePromise, photosPromise, videosLoaded]);
 
         // photos ロード完了後にテーマ色を反映（ロード前に theme.apply が走っているため再実行）
         this.theme.apply();

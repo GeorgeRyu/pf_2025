@@ -203,6 +203,42 @@ export class PlateContentController {
         }
     }
 
+
+    preloadVideos(): { getProgress: () => number; promise: Promise<void> } {
+        this.ensureVideosPrepared();
+
+        if (!this.videos.length) {
+            return { getProgress: () => 1, promise: Promise.resolve() };
+        }
+
+        let loadedCount = 0;
+        const total = this.videos.length;
+
+        const promise = Promise.all(
+            this.videos.map(
+                (video) =>
+                    new Promise<void>((resolve) => {
+                        if (video.readyState >= 4) {
+                            loadedCount++;
+                            resolve();
+                            return;
+                        }
+                        const onReady = () => {
+                            loadedCount++;
+                            resolve();
+                        };
+                        video.addEventListener('canplaythrough', onReady, { once: true });
+                        video.addEventListener('error', onReady, { once: true });
+                    })
+            )
+        ).then(() => {});
+
+        return {
+            getProgress: () => (total > 0 ? loadedCount / total : 1),
+            promise,
+        };
+    }
+
     private ensureVideosPrepared() {
         if (this.videos.length || !this.deps.movies.length) return;
 

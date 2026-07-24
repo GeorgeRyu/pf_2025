@@ -74,18 +74,73 @@ export class TheatreController {
         this.bindObject3D('worksPlate', targets.worksPlate);
     }
 
-    async playLoadingAnimation(): Promise<void> {
+    async playLoadingAnimation(
+        getVideoProgress: () => number,
+        onNearComplete?: () => void,
+    ): Promise<void> {
+        const loadingFirstPosition = this.sequenceLength * 0.1;
         const loadingEndPosition = this.sequenceLength * 0.2;
 
         this.theatreSheet.sequence.position = 0;
 
+        const minDuration = 2; // 最低2秒
+        const maxDuration = 5; // 最大5秒（超えたら1秒tweenで完走）
+        const startTime = performance.now();
+
+        // Phase 1a: ticker追跡（動画ロード進捗 × 最低2秒保証）
+        const phase1aResult = await new Promise<'done' | 'timeout'>((resolve) => {
+            const tick = () => {
+                const elapsed = (performance.now() - startTime) / 1000;
+                const timeMinProgress = Math.min(elapsed / minDuration, 1);
+                const videoProgress = Math.min(getVideoProgress(), 1);
+                // 2秒ペースと動画進捗の遅い方に追従
+                const effectiveProgress = Math.min(timeMinProgress, videoProgress);
+
+                this.theatreSheet.sequence.position = loadingFirstPosition * effectiveProgress;
+
+                if (timeMinProgress >= 1 && videoProgress >= 1) {
+                    gsap.ticker.remove(tick);
+                    resolve('done');
+                } else if (elapsed >= maxDuration) {
+                    gsap.ticker.remove(tick);
+                    resolve('timeout');
+                }
+            };
+            gsap.ticker.add(tick);
+        });
+
+        // Phase 1b: 5秒タイムアウト時は1秒tweenで滑らかに完走
+        if (phase1aResult === 'timeout') {
+            await new Promise<void>((resolve) => {
+                const currentPos = { value: this.theatreSheet.sequence.position };
+                gsap.to(currentPos, {
+                    value: loadingFirstPosition,
+                    duration: 1,
+                    ease: 'power2.out',
+                    onUpdate: () => {
+                        this.theatreSheet.sequence.position = currentPos.value;
+                    },
+                    onComplete: resolve,
+                });
+            });
+        }
+
+        // Phase 2: loadingFirstPosition → loadingEndPosition へ tween
+        const phase2Duration = 4;
+        const nearCompleteThreshold = (phase2Duration - 0.8) / phase2Duration;
         return new Promise<void>((resolve) => {
-            const positionObj = { value: 0 };
-            gsap.to(positionObj, {
+            const positionObj = { value: loadingFirstPosition };
+            let nearCompleteTriggered = false;
+            const tween = gsap.to(positionObj, {
                 value: loadingEndPosition,
-                duration: 5,
+                duration: phase2Duration,
+                ease: 'power2.out',
                 onUpdate: () => {
                     this.theatreSheet.sequence.position = positionObj.value;
+                    if (!nearCompleteTriggered && tween.progress() >= nearCompleteThreshold) {
+                        nearCompleteTriggered = true;
+                        onNearComplete?.();
+                    }
                 },
                 onComplete: () => {
                     resolve();
