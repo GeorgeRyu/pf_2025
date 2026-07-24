@@ -13,6 +13,7 @@ export type WebGLScrollControllerDeps = {
     plateContent: PlateContentController;
     onPhotosEnter?: () => void;
     onPhotosLeave?: () => void;
+    onPlaygroundLeave?: () => void;
 };
 
 /**
@@ -117,6 +118,21 @@ export class WebGLScrollController {
             onLeaveBack: () => this.leavePhotosZone('backward'),
         });
         this.scrollTriggers.push(photosTrigger);
+
+        // Playground ゾーン: sections[2].scrollStart 〜 sections[3].scrollEnd
+        const playgroundZoneStart = sections[2].scrollStart;
+        const playgroundZoneEnd = sections[3].scrollEnd;
+        const playgroundTrigger = ScrollTrigger.create({
+            trigger: body,
+            start: `${playgroundZoneStart} top`,
+            end: `${playgroundZoneEnd} top`,
+            markers: false,
+            onEnter: () => this.enterPlaygroundZone(),
+            onEnterBack: () => this.enterPlaygroundZone(),
+            onLeave: () => this.leavePlaygroundZone('forward'),
+            onLeaveBack: () => this.leavePlaygroundZone('backward'),
+        });
+        this.scrollTriggers.push(playgroundTrigger);
     }
 
     private enterAboutZone() {
@@ -144,5 +160,16 @@ export class WebGLScrollController {
         if (this.activeSection !== 'photos') return;
         this.activeSection = direction === 'backward' ? 'about' : 'playground';
         this.deps.onPhotosLeave?.();
+    }
+
+    private enterPlaygroundZone() {
+        if (this.activeSection === 'playground') return;
+        this.activeSection = 'playground';
+    }
+
+    private leavePlaygroundZone(direction: 'forward' | 'backward') {
+        if (this.activeSection !== 'playground') return;
+        this.activeSection = direction === 'backward' ? 'photos' : 'thx';
+        this.deps.onPlaygroundLeave?.();
     }
 }

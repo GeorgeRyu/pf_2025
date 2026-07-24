@@ -1,14 +1,23 @@
 ---
 export interface Props {
     movies?: string[];
+    playgroundMovies?: string[];
     photos?: string[];
 }
-const { movies = [], photos = [] } = Astro.props;
+const { movies = [], playgroundMovies = [], photos = [] } = Astro.props;
 const moviesAttr = encodeURIComponent(JSON.stringify(movies));
+const playgroundMoviesAttr = encodeURIComponent(JSON.stringify(playgroundMovies));
 const photosAttr = encodeURIComponent(JSON.stringify(photos));
 ---
 
-<div id="webgl-container" class="relative z-10" data-movies={moviesAttr} data-photos={photosAttr}></div>
+<div
+	id="webgl-container"
+	class="relative z-10"
+	style="opacity: 0"
+	data-movies={moviesAttr}
+	data-playground-movies={playgroundMoviesAttr}
+	data-photos={photosAttr}
+></div>
 
 <script>
     import { WebGLSceneController } from '../../script/webgl/WebGLSceneController';

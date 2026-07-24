@@ -26,6 +26,14 @@ uniform float imageMouseSoftness;  // スポット境界のなめらかさ (0..1
 uniform vec3 duotoneLight;  // 明部（--c-base）
 uniform vec3 duotoneDark;   // 暗部（--c-accent）
 
+// ----- Playground 未開発枠: TVノイズ -----
+uniform float staticNoiseMode; // 0=通常, 1=白黒スタティック
+
+// ----- Playground: フォーカスバー内に動画を cover -----
+uniform float barUvRemap; // 0=オフ, 1=バー局所UV
+uniform vec2 barUvMin;
+uniform vec2 barUvMax;
+
 varying vec2 vUv;
 
 // ピクセレーション効果
@@ -83,7 +91,38 @@ vec3 applyDuotone(vec3 imgRgb) {
     return mix(dark, light, luma);
 }
 
+// プレート全体 UV → フォーカスバー内ローカル UV（0..1）
+vec2 toBarLocalUv(vec2 uv) {
+    if (barUvRemap < 0.5) return uv;
+    vec2 span = max(barUvMax - barUvMin, vec2(1e-4));
+    return clamp((uv - barUvMin) / span, 0.0, 1.0);
+}
+
 void main() {
+    // ========================================
+    // Playground TVノイズ（ホバー中の未開発枠）
+    // ========================================
+    if (staticNoiseMode > 0.5) {
+        // フェードアウト中はベタ色へ
+        if (fadeOutProgress > 0.0) {
+            float n = hash21(floor(vUv * 180.0) + fract(time * 60.0));
+            vec3 noiseRgb = vec3(n);
+            vec3 base = toSRGB(baseColor);
+            float fade = smoothstep(0.2, 1.0, fadeOutProgress);
+            gl_FragColor = vec4(mix(noiseRgb, base, fade), 1.0);
+            return;
+        }
+
+        float n = hash21(floor(vUv * 180.0) + fract(time * 60.0));
+        // progress で粗ドット → フルノイズ
+        float pixelSize = mix(24.0, 180.0, progress * progress);
+        vec2 cell = floor(vUv * pixelSize);
+        float n2 = hash21(cell + fract(time * 47.0));
+        float mixN = mix(n2, n, smoothstep(0.0, 1.0, progress));
+        gl_FragColor = vec4(vec3(mixN), 1.0);
+        return;
+    }
+
     // ========================================
     // フェードアウト時（mouseLeave / セクション離脱）
     // ========================================
@@ -104,7 +143,8 @@ void main() {
 
         // --- 動画モードの fadeOut（既存: ピクセレーション → baseColor） ---
         float pixelSize = mix(256.0, 4.0, t * t);
-        vec2 pixelatedUV = pixelate(vUv, pixelSize);
+        vec2 localUv = toBarLocalUv(vUv);
+        vec2 pixelatedUV = pixelate(localUv, pixelSize);
         vec2 uv = pixelatedUV * uvScaleA + uvOffsetA;
         vec4 result = texture2D(textureA, uv);
         float fade = smoothstep(0.3, 1.0, t);
@@ -143,7 +183,8 @@ void main() {
     // 動画モード（既存）: 粗いドット → 元の動画
     // ========================================
     float pixelSize = mix(4.0, 256.0, progress * progress);
-    vec2 pixelatedUV = pixelate(vUv, pixelSize);
+    vec2 localUv = toBarLocalUv(vUv);
+    vec2 pixelatedUV = pixelate(localUv, pixelSize);
 
     vec2 uvA = pixelatedUV * uvScaleA + uvOffsetA;
     vec2 uvB = pixelatedUV * uvScaleB + uvOffsetB;

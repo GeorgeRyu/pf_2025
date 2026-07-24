@@ -3,7 +3,7 @@ import plateVertexShader from '../shaders/plateVertex.glsl?raw';
 import plateFragmentShader from '../shaders/plateFragment.glsl?raw';
 import type { AboutImageConfig } from '../types';
 
-const PLATE_SIZE = 38;
+export const PLATE_SIZE = 38;
 
 export type WorksPlateMesh = {
     mesh: THREE.Mesh;
@@ -38,6 +38,10 @@ export function createWorksPlateMesh(aboutConfig: AboutImageConfig): WorksPlateM
             imageMouseSoftness: { value: aboutConfig.mouseSoftness },
             duotoneLight: { value: new THREE.Color(1, 1, 1) },
             duotoneDark: { value: new THREE.Color(0, 0, 0) },
+            staticNoiseMode: { value: 0.0 },
+            barUvRemap: { value: 0.0 },
+            barUvMin: { value: new THREE.Vector2(0, 0) },
+            barUvMax: { value: new THREE.Vector2(1, 1) },
         },
         vertexShader: plateVertexShader,
         fragmentShader: plateFragmentShader,

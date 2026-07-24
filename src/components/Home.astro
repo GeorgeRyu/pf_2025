@@ -33,19 +33,23 @@ const navItems = [
 ];
 
 const playgrounds = [
-	"#001_projectName",
-	"#002_projectName",
-	"#003_projectName",
-	"#004_projectName",
-	"#005_projectName",
-	"#006_projectName",
-	"#007_projectName"
+	"001 - BlackElectricFan",
+	"002 - CirclingPhotos",
+	"003 - working in progress",
+	"004 - working in progress",
+	"005 - working in progress",
+	"006 - working in progress",
+	"007 - working in progress"
 ];
 ---
 
 <main class="relative h-[1400vh] bg-base">
     <WebGLScene
         movies={projects.map(p => p.moviePc)}
+        playgroundMovies={[
+            '/movies/playground/black-electric-fan.mp4',
+            '/movies/playground/circle-pictures.mp4',
+        ]}
         photos={[
             '/images/photos/photos-1.JPG',
             '/images/photos/photos-2.JPG',
@@ -113,12 +117,13 @@ const playgrounds = [
 			{ /* PLAYGROUND AREA */ }
 			<div data-name="playground-area" class="absolute top-0 left-0 w-full h-auto hidden grid-cols-4 gap-x-[8px] gap-y-8 lg:grid-cols-6">
 				<p data-name="kinetic-txt" class="col-span-2 col-start-3 lg:col-start-5 lg:col-span-1 lg:mt-24">This is a playground for learning and outputting 3D staging on a regular basis.</p>
-				<div class=" col-span-2 col-start-3 grid grid-cols-1 gap-y-[0.4em] lg:col-start-5 lg:col-span-1">
+				<div class="col-span-2 col-start-3 grid grid-cols-1 lg:col-start-5 lg:col-span-1">
 					{playgrounds.map((playground, index) => (
 						<a 
 							href={`/${playground.toLowerCase().replace(/\s+/g, '-')}.html`}
-							class=""
+							class="js-playground-link link-inside block py-[0.2em] leading-snug"
 							data-name="kinetic-txt"
+							data-playground-index={index}
 						>
 							{playground}
 						</a>

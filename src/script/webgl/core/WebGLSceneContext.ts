@@ -5,17 +5,20 @@ export type WebGLRenderLoopDeps = {
     getPlateShaderMaterial: () => THREE.ShaderMaterial;
     getWorksPlate: () => THREE.Mesh;
     getGroupRectangles: () => THREE.Group;
+    getRectangles?: () => THREE.Mesh[];
     isPC: () => boolean;
     getActiveSection: () => ActiveSection;
     getMouseUvTarget: () => THREE.Vector2;
     getPhotoPlanesGroup?: () => THREE.Group | null;
+    /** Playground ホバー中のフォーカスバー index。null なら通常描画 */
+    getPlaygroundFocusedIndex?: () => number | null;
     onTick?: (time: number) => void;
     onFrameStart?: () => void;
     onFrameEnd?: () => void;
 };
 
 /**
- * Three.js シーン・レンダラー・ステンシル3パス描画ループ。
+ * Three.js シーン・レンダラー・ステンシル描画ループ。
  */
 export class WebGLSceneContext {
     readonly renderer: THREE.WebGLRenderer;
@@ -86,36 +89,30 @@ export class WebGLSceneContext {
 
         const gl = this.renderer.getContext();
         const photoPlanesGroup = deps.getPhotoPlanesGroup?.() ?? null;
+        const focusedIndex = deps.getPlaygroundFocusedIndex?.() ?? null;
 
-        // Pass 1/2 から photo planes を除外（stencil buffer 汚染防止）
         if (photoPlanesGroup) photoPlanesGroup.visible = false;
-
-        gl.enable(gl.STENCIL_TEST);
 
         this.renderer.autoClear = false;
         this.renderer.clear(true, true, true);
 
-        // Pass 1: マスク（rectangles）をステンシルバッファに書き込む
-        worksPlate.visible = false;
-        gl.stencilFunc(gl.ALWAYS, 1, 0xff);
-        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        gl.colorMask(false, false, false, false);
-        gl.depthMask(false);
-        this.renderer.render(this.scene, this.camera);
+        if (focusedIndex != null && deps.getRectangles) {
+            this.renderPlaygroundHover(
+                deps,
+                worksPlate,
+                groupRectangles,
+                focusedIndex,
+                gl,
+            );
+        } else {
+            this.renderDefaultStencil(worksPlate, groupRectangles, gl);
+        }
 
-        // Pass 2: worksPlate をステンシルテスト有効でレンダリング
-        worksPlate.visible = true;
-        groupRectangles.visible = false;
-        gl.stencilFunc(gl.EQUAL, 1, 0xff);
-        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-        gl.colorMask(true, true, true, true);
-        gl.depthMask(true);
-        this.renderer.render(this.scene, this.camera);
-
-        // Pass 3: photo planes のみ、stencil なし、depth クリアで depth 干渉防止
+        // Pass: photo planes のみ、stencil なし、depth クリアで depth 干渉防止
         if (photoPlanesGroup) {
             photoPlanesGroup.visible = true;
             worksPlate.visible = false;
+            groupRectangles.visible = false;
             gl.disable(gl.STENCIL_TEST);
             gl.clear(gl.DEPTH_BUFFER_BIT);
             this.renderer.render(this.scene, this.camera);
@@ -124,9 +121,85 @@ export class WebGLSceneContext {
         // リセット
         worksPlate.visible = true;
         groupRectangles.visible = true;
+        const rectangles = deps.getRectangles?.() ?? [];
+        rectangles.forEach((r) => { r.visible = true; });
         gl.disable(gl.STENCIL_TEST);
         this.renderer.autoClear = true;
 
         deps.onFrameEnd?.();
+    }
+
+    /** 通常: 全バーをステンシル → プレート */
+    private renderDefaultStencil(
+        worksPlate: THREE.Mesh,
+        groupRectangles: THREE.Group,
+        gl: WebGLRenderingContext | WebGL2RenderingContext,
+    ) {
+        gl.enable(gl.STENCIL_TEST);
+
+        worksPlate.visible = false;
+        groupRectangles.visible = true;
+        gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        gl.colorMask(false, false, false, false);
+        gl.depthMask(false);
+        this.renderer.render(this.scene, this.camera);
+
+        worksPlate.visible = true;
+        groupRectangles.visible = false;
+        gl.stencilFunc(gl.EQUAL, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.colorMask(true, true, true, true);
+        gl.depthMask(true);
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    /**
+     * Playground ホバー:
+     * 1) 非フォーカスバーをベタ色で直接描画
+     * 2) フォーカスバーのみステンシル
+     * 3) プレート（動画/ノイズ）をステンシル内に描画
+     */
+    private renderPlaygroundHover(
+        deps: WebGLRenderLoopDeps,
+        worksPlate: THREE.Mesh,
+        groupRectangles: THREE.Group,
+        focusedIndex: number,
+        gl: WebGLRenderingContext | WebGL2RenderingContext,
+    ) {
+        const rectangles = deps.getRectangles?.() ?? [];
+
+        // Pass A: 非フォーカスバーをベタ色で描画
+        worksPlate.visible = false;
+        groupRectangles.visible = true;
+        rectangles.forEach((r, i) => {
+            r.visible = i !== focusedIndex;
+        });
+        gl.disable(gl.STENCIL_TEST);
+        gl.colorMask(true, true, true, true);
+        gl.depthMask(true);
+        this.renderer.render(this.scene, this.camera);
+
+        // Pass B: フォーカスバーをステンシルに書き込み
+        gl.enable(gl.STENCIL_TEST);
+        gl.clear(gl.STENCIL_BUFFER_BIT);
+        rectangles.forEach((r, i) => {
+            r.visible = i === focusedIndex;
+        });
+        gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        gl.colorMask(false, false, false, false);
+        gl.depthMask(false);
+        this.renderer.render(this.scene, this.camera);
+
+        // Pass C: プレートをステンシル内に描画
+        worksPlate.visible = true;
+        groupRectangles.visible = false;
+        rectangles.forEach((r) => { r.visible = false; });
+        gl.stencilFunc(gl.EQUAL, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.colorMask(true, true, true, true);
+        gl.depthMask(true);
+        this.renderer.render(this.scene, this.camera);
     }
 }

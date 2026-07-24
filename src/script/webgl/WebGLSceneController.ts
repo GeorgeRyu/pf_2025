@@ -7,6 +7,9 @@ import { WebGLScrollController } from './scroll/WebGLScrollController';
 import { TheatreController } from './theatre/TheatreController';
 import { WebGLTheme } from './theme/WebGLTheme';
 import { WorksHoverController } from './interaction/WorksHoverController';
+import { PlaygroundHoverController } from './interaction/PlaygroundHoverController';
+import { PlaygroundBarsController } from './interaction/PlaygroundBarsController';
+import { computeBarUvBounds, calcCoverUvTransform } from './interaction/playgroundBarUv';
 import { AboutPointerController } from './interaction/AboutPointerController';
 import { PhotosInteractionController } from './interaction/PhotosInteractionController';
 import { WebGLDebugPanel } from './debug/WebGLDebugPanel';
@@ -32,6 +35,7 @@ export class WebGLSceneController {
     private worksPlate!: THREE.Mesh;
     private debugPanel: WebGLDebugPanel | null = null;
     private movies: string[] = [];
+    private playgroundMovies: string[] = [];
     private photos: string[] = [];
     private plateContent!: PlateContentController;
     private scroll!: WebGLScrollController;
@@ -48,6 +52,8 @@ export class WebGLSceneController {
 
     private photosPillarPlanes!: PhotosPillarPlanes;
     private photosInteraction!: PhotosInteractionController;
+    private playgroundBars!: PlaygroundBarsController;
+    private playgroundHover!: PlaygroundHoverController;
 
     constructor() {
         const container = document.getElementById('webgl-container');
@@ -75,6 +81,15 @@ export class WebGLSceneController {
             this.movies = [];
         }
 
+        const playgroundMoviesStr = container?.getAttribute('data-playground-movies') || '';
+        try {
+            this.playgroundMovies = playgroundMoviesStr
+                ? JSON.parse(decodeURIComponent(playgroundMoviesStr))
+                : [];
+        } catch (e) {
+            this.playgroundMovies = [];
+        }
+
         const photosStr = container?.getAttribute('data-photos') || '';
         try {
             this.photos = photosStr ? JSON.parse(decodeURIComponent(photosStr)) : [];
@@ -84,6 +99,7 @@ export class WebGLSceneController {
 
         this.plateContent = new PlateContentController({
             movies: this.movies,
+            playgroundMovies: this.playgroundMovies,
             getPlateShaderMaterial: () => this.plateShaderMaterial,
             getWorksPlate: () => this.worksPlate,
         });
@@ -98,6 +114,11 @@ export class WebGLSceneController {
             getPhotosPillarPlanes: () => this.photosPillarPlanes,
         });
 
+        this.playgroundBars = new PlaygroundBarsController({
+            getRectangles: () => this.rectangles,
+            isPC: () => this.isPC,
+        });
+
         this.scroll = new WebGLScrollController({
             getTheatreSheet: () => this.theatre.getSheet(),
             getSequenceLength: () => this.theatre.getSequenceLength(),
@@ -109,6 +130,9 @@ export class WebGLSceneController {
             onPhotosLeave: () => {
                 this.photosPillarPlanes.hide();
                 this.photosInteraction.detach();
+            },
+            onPlaygroundLeave: () => {
+                this.playgroundHover?.reset();
             },
         });
         this.theme = new WebGLTheme({
@@ -124,6 +148,13 @@ export class WebGLSceneController {
             plateContent: this.plateContent,
             getActiveSection: () => this.scroll.getActiveSection(),
         }).attach();
+
+        this.playgroundHover = new PlaygroundHoverController({
+            plateContent: this.plateContent,
+            bars: this.playgroundBars,
+            getActiveSection: () => this.scroll.getActiveSection(),
+        });
+        this.playgroundHover.attach();
     }
 
     private get scene() {
@@ -134,16 +165,60 @@ export class WebGLSceneController {
         return this.context.camera;
     }
 
+    /** Playground ホバー中: フォーカスバーの UV 範囲へ動画を cover */
+    private updatePlaygroundBarUv() {
+        if (!this.plateShaderMaterial) return;
+        const u = this.plateShaderMaterial.uniforms;
+        const focused = this.playgroundBars?.getFocusedIndex() ?? null;
+
+        if (focused == null || !this.worksPlate || !this.rectangles[focused]) {
+            if (u.barUvRemap) u.barUvRemap.value = 0;
+            return;
+        }
+
+        const bounds = computeBarUvBounds(this.rectangles[focused], this.worksPlate);
+        if (!bounds) {
+            u.barUvRemap.value = 0;
+            return;
+        }
+
+        u.barUvRemap.value = 1;
+        (u.barUvMin.value as THREE.Vector2).copy(bounds.min);
+        (u.barUvMax.value as THREE.Vector2).copy(bounds.max);
+
+        const videoAspect = this.plateContent.getActivePlaygroundVideoAspect();
+        if (videoAspect != null) {
+            const destAspect = Math.max(
+                (bounds.max.x - bounds.min.x) / Math.max(bounds.max.y - bounds.min.y, 1e-5),
+                1e-5,
+            );
+            const cover = calcCoverUvTransform(videoAspect, destAspect);
+            (u.uvScaleB.value as THREE.Vector2).copy(cover.scale);
+            (u.uvOffsetB.value as THREE.Vector2).copy(cover.offset);
+            // トランジション中も A を同じ cover に揃える（前が別動画でも見た目優先）
+            if (u.staticNoiseMode.value < 0.5) {
+                (u.uvScaleA.value as THREE.Vector2).copy(cover.scale);
+                (u.uvOffsetA.value as THREE.Vector2).copy(cover.offset);
+            }
+        }
+    }
+
     private startRenderLoop() {
         this.context.startRenderLoop({
             getPlateShaderMaterial: () => this.plateShaderMaterial,
             getWorksPlate: () => this.worksPlate,
             getGroupRectangles: () => this.groupRectangles,
+            getRectangles: () => this.rectangles,
             isPC: () => this.isPC,
             getActiveSection: () => this.scroll.getActiveSection(),
             getMouseUvTarget: () => this.mouseUvTarget,
             getPhotoPlanesGroup: () => this.photosPillarPlanes.group,
-            onTick: (time) => this.theatre.tick(time),
+            getPlaygroundFocusedIndex: () => this.playgroundBars.getFocusedIndex(),
+            onTick: (time) => {
+                this.theatre.tick(time);
+                this.playgroundBars.applyOverrides();
+                this.updatePlaygroundBarUv();
+            },
             onFrameStart: () => {
                 if (this.isDebug) this.debugPanel?.stats.begin();
             },

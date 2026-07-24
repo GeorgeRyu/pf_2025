@@ -1,6 +1,8 @@
 /** worksPlate に表示するコンテンツ種別 */
 export type PlateContent =
     | { kind: 'video'; index: number }
+    | { kind: 'playgroundVideo'; index: number }
+    | { kind: 'noise' }
     | { kind: 'image'; key: string };
 
 /** 現在アクティブなセクション */
