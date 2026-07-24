@@ -43,6 +43,10 @@ import LockModal from '../components/LockModal.astro';
 </html>
 
 <style lang="scss" is:global>
+	[loading-name='text'] {
+		opacity: 0;
+	}
+
 	html {
 		font-size: 62.5%;
 	}
@@ -56,8 +60,8 @@ import LockModal from '../components/LockModal.astro';
 	}
 	body {
 		font-size: var(--text-more-12);
-		// letter-spacing: -0.02em;
-		letter-spacing: -0.03em;
+		// letter-spacing: -0.03em;
+		letter-spacing: -4%;
 		font-optical-sizing: auto;
 		font-feature-settings: "palt" 1;
 		// line-height: 1.65;

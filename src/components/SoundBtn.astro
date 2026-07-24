@@ -6,7 +6,7 @@ interface Props {
 const { classNameWrapper } = Astro.props;
 ---
 
-<div class={`flex ${classNameWrapper}`}>
+<div loading-name='text' class={`flex ${classNameWrapper}`}>
 	<span>sound(off)</span>
 	<span @click="isSoundMenuOpen = !isSoundMenuOpen" class="cursor-pointer pointer-events-auto">{ `{ setting }` }</span>
 </div>

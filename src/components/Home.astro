@@ -58,7 +58,7 @@ const playgrounds = [
     />
 
 	<div class="fixed top-[15vh] left-0 grid grid-cols-4 gap-x-[8px] gap-y-10 w-full px-s-16-60 text-accent z-10 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-0 lg:left-0 lg:top-more-40 lg:px-s-20-60">
-		<div class="relative col-start-3 justify-self-start lg:hidden">
+		<div loading-name='text' class="relative col-start-3 justify-self-start lg:hidden">
 			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
 			<div class=" leading-snug bg-accent/20" data-name="name-area"></div>
 		</div>
@@ -66,7 +66,7 @@ const playgrounds = [
 		<div class="hidden lg:block col-start-5">
 			<div class="grid grid-cols-1">
 				{navItems.map((item) => (
-					<a x-on:click={`anchorLink(${item.distanceNumber}, true)`} href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`} class={`relative ${item.class}`}>
+					<a loading-name='text' x-on:click={`anchorLink(${item.distanceNumber}, true)`} href={`#${item.name.toLowerCase().replace(/\s+/g, '-')}`} class={`relative ${item.class}`}>
 						<div class="absolute top-0 right-[calc(100%+3px)] w-[2px] h-4/5 bg-black01 hidden"></div>
 						{item.name}
 					</a>
@@ -80,10 +80,11 @@ const playgrounds = [
 				<div class="col-span-2 col-start-3 grid grid-cols-1 gap-y-[0.5em] lg:col-start-5 lg:mt-more-60">
 					{projects.map(project => (						
 						<button 
-							class="js-project-modal-btn text-left leading-tight cursor-pointer" 
+							class="js-project-modal-btn link-inside text-left leading-tight cursor-pointer" 
 							data-project-slug={project.slug}
 							data-name="kinetic-txt"
 							data-text={project.title}
+							loading-name='text'
 						>
 							{project.title}
 						</button>
@@ -100,7 +101,7 @@ const playgrounds = [
 				</p>
 				<div class="grid grid-cols-1 gap-y-[1.2em] col-span-2 col-start-3 lg:col-span-2 lg:col-start-5 lg:pr-[25%]">
 					<p data-name="kinetic-txt" class="">born in 1988 and worked as a designer in my twenties and entered the web industry as an engineer in my thirties. I like to think about design and direction.</p>
-					<p data-name="kinetic-txt" class="text-more-10 opacity-40">1988年生まれ。20代はデザイナー、30代からweb業界に入りエンジニアとして働いています。デザインや演出を考えるのが好きです。</p>
+					<p data-name="kinetic-txt" class="text-more-11 opacity-40">1988年生まれ。20代はデザイナー、30代からweb業界に入りエンジニアとして働いています。デザインや演出を考えるのが好きです。</p>
 				</div>
 			</div>
 
@@ -247,6 +248,42 @@ const playgrounds = [
 </main>
 
 <style lang="scss" is:global>
+
+	@keyframes link-inside-animation {
+		0% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0;
+		}
+	}
+
+	.link-inside {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: start;
+		&:hover {
+			&::before {
+				transform: scale(1);
+				animation: link-inside-animation 1.4s steps(1, end) infinite 0.5s;
+			}
+		}
+
+		&::before {
+			position: absolute;
+			top: calc(50% - var(--s-more-4) / 2);
+			right: calc(100% + 0.5em);
+			content: '';
+			display: block;
+			width: var(--s-more-4);
+			height: var(--s-more-4);
+			background-color: var(--c-accent);
+			transform: scale(0);
+			transition: margin 0.3s ease-in-out, transform 0.3s ease-in-out;
+		}
+	}
+
 	.modal-overlay {
 		position: fixed;
 		top: 0;
