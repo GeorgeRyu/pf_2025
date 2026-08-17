@@ -4888,6 +4888,19 @@
                     "value": 4
                   },
                   {
+                    "id": "_ZNqrrctMP",
+                    "position": 9,
+                    "connectedRight": true,
+                    "handles": [
+                      0.5,
+                      1,
+                      0.5,
+                      0
+                    ],
+                    "type": "bezier",
+                    "value": 4.7963472009319545
+                  },
+                  {
                     "id": "zSpXpJrddB",
                     "position": 9.5,
                     "connectedRight": true,
@@ -5600,8 +5613,8 @@
                     "handles": [
                       0.5,
                       1,
-                      0.5,
-                      0
+                      0.345,
+                      0.289
                     ],
                     "type": "bezier",
                     "value": -10
@@ -5645,8 +5658,8 @@
                     "handles": [
                       0.5,
                       1,
-                      0.5,
-                      0
+                      0.789,
+                      0.01
                     ],
                     "type": "bezier",
                     "value": -9
@@ -5656,8 +5669,8 @@
                     "position": 4,
                     "connectedRight": true,
                     "handles": [
-                      0.5,
-                      1,
+                      0.572,
+                      0.907,
                       0.5,
                       0
                     ],
@@ -5671,8 +5684,8 @@
                     "handles": [
                       0.5,
                       1,
-                      0.5,
-                      0
+                      0.273,
+                      0.568
                     ],
                     "type": "bezier",
                     "value": -3.5
@@ -5684,7 +5697,7 @@
                     "handles": [
                       0.5,
                       1,
-                      0.5,
+                      0.783,
                       0
                     ],
                     "type": "bezier",
@@ -5695,21 +5708,21 @@
                     "position": 8,
                     "connectedRight": true,
                     "handles": [
-                      0.5,
-                      1,
-                      0.5,
-                      0
+                      0.448,
+                      0.979,
+                      0.25,
+                      0.46
                     ],
                     "type": "bezier",
-                    "value": -11
+                    "value": -8
                   },
                   {
                     "id": "uNWnQH4QQD",
                     "position": 8.967,
                     "connectedRight": true,
                     "handles": [
-                      0.5,
-                      1,
+                      0.45,
+                      0.94,
                       0.5,
                       0
                     ],
@@ -5781,24 +5794,24 @@
                     "handles": [
                       0.5,
                       1,
-                      0.5,
-                      0
+                      0.717,
+                      0.042
                     ],
                     "type": "bezier",
-                    "value": -10
+                    "value": -8
                   },
                   {
                     "id": "sHVRGjmc-1",
                     "position": 8,
                     "connectedRight": true,
                     "handles": [
-                      0.5,
-                      1,
-                      0.5,
-                      0
+                      0.996,
+                      0.401,
+                      0.18,
+                      0.516
                     ],
                     "type": "bezier",
-                    "value": -21
+                    "value": -15
                   },
                   {
                     "id": "DHRnljvGPT",
@@ -6869,6 +6882,7 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "MCxm8xW0E7C_x8Ht",
     "IMAIIl1KT5BKz8gh",
     "B7N1CirA2XWrkj6M",
     "RQBfD0zL7z3ccRvQ",
