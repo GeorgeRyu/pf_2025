@@ -83,22 +83,26 @@ export class TheatreController {
 
         this.theatreSheet.sequence.position = 0;
 
-        const minDuration = 2; // 最低2秒
-        const maxDuration = 5; // 最大5秒（超えたら1秒tweenで完走）
+        // Phase1: 最低1.2sは棒を見せる。動画進捗でまだらにしつつ、最大3sで打ち切る
+        const minDuration = 1.2;
+        const maxDuration = 3;
+        const pauseBeforePhase2 = 0.3;
         const startTime = performance.now();
 
-        // Phase 1a: ticker追跡（動画ロード進捗 × 最低2秒保証）
         const phase1aResult = await new Promise<'done' | 'timeout'>((resolve) => {
             const tick = () => {
                 const elapsed = (performance.now() - startTime) / 1000;
-                const timeMinProgress = Math.min(elapsed / minDuration, 1);
-                const videoProgress = Math.min(getVideoProgress(), 1);
-                // 2秒ペースと動画進捗の遅い方に追従
-                const effectiveProgress = Math.min(timeMinProgress, videoProgress);
+                const timeProgress = Math.min(elapsed / minDuration, 1);
+                const videoProgress = Math.min(Math.max(getVideoProgress(), 0), 1);
+                // キャッシュ時は time で伸びる。遅い回線は video に引っ張られつつ time*0.5 で下限
+                const displayProgress = Math.min(
+                    timeProgress,
+                    Math.max(videoProgress, timeProgress * 0.5)
+                );
 
-                this.theatreSheet.sequence.position = loadingFirstPosition * effectiveProgress;
+                this.theatreSheet.sequence.position = loadingFirstPosition * displayProgress;
 
-                if (timeMinProgress >= 1 && videoProgress >= 1) {
+                if (videoProgress >= 1 && elapsed >= minDuration) {
                     gsap.ticker.remove(tick);
                     resolve('done');
                 } else if (elapsed >= maxDuration) {
@@ -109,13 +113,15 @@ export class TheatreController {
             gsap.ticker.add(tick);
         });
 
-        // Phase 1b: 5秒タイムアウト時は1秒tweenで滑らかに完走
-        if (phase1aResult === 'timeout') {
+        // 未到達なら追いつき（timeout: 1s / 完了直後の微小不足: 0.3s）
+        const current = this.theatreSheet.sequence.position;
+        if (current < loadingFirstPosition - 0.001) {
+            const catchUpDuration = phase1aResult === 'timeout' ? 1 : 0.3;
             await new Promise<void>((resolve) => {
-                const currentPos = { value: this.theatreSheet.sequence.position };
+                const currentPos = { value: current };
                 gsap.to(currentPos, {
                     value: loadingFirstPosition,
-                    duration: 1,
+                    duration: catchUpDuration,
                     ease: 'power2.out',
                     onUpdate: () => {
                         this.theatreSheet.sequence.position = currentPos.value;
@@ -123,7 +129,14 @@ export class TheatreController {
                     onComplete: resolve,
                 });
             });
+        } else {
+            this.theatreSheet.sequence.position = loadingFirstPosition;
         }
+
+        // Phase1 完了後、一拍おいて Phase2 へ
+        await new Promise<void>((resolve) => {
+            gsap.delayedCall(pauseBeforePhase2, resolve);
+        });
 
         // Phase 2: loadingFirstPosition → loadingEndPosition へ tween
         const phase2Duration = 4;

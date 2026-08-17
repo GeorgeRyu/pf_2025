@@ -216,42 +216,83 @@ export class PlateContentController {
         }
     }
 
-    preloadVideos(): { getProgress: () => number; promise: Promise<void> } {
+    /**
+     * 全動画を裏で preload しつつ、Works 先頭 criticalCount 本のバッファ進捗を返す。
+     * Phase1 ゲートは getProgress / criticalReady のみを使う（allReady は待たない）。
+     */
+    preloadVideos(options?: { criticalCount?: number }): {
+        getProgress: () => number;
+        criticalReady: Promise<void>;
+        allReady: Promise<void>;
+    } {
+        const criticalCount = options?.criticalCount ?? 2;
+
         this.ensureVideosPrepared();
         this.ensurePlaygroundVideosPrepared();
 
         const allVideos = [...this.videos, ...this.playgroundVideos];
+        const criticalVideos = this.videos.slice(0, Math.min(criticalCount, this.videos.length));
 
         if (!allVideos.length) {
-            return { getProgress: () => 1, promise: Promise.resolve() };
+            return {
+                getProgress: () => 1,
+                criticalReady: Promise.resolve(),
+                allReady: Promise.resolve(),
+            };
         }
 
-        let loadedCount = 0;
-        const total = allVideos.length;
+        const waitVideoReady = (video: HTMLVideoElement) =>
+            new Promise<void>((resolve) => {
+                if (video.readyState >= 3 || video.error) {
+                    resolve();
+                    return;
+                }
+                const done = () => resolve();
+                video.addEventListener('loadeddata', done, { once: true });
+                video.addEventListener('canplay', done, { once: true });
+                video.addEventListener('error', done, { once: true });
+            });
 
-        const promise = Promise.all(
-            allVideos.map(
-                (video) =>
-                    new Promise<void>((resolve) => {
-                        if (video.readyState >= 4) {
-                            loadedCount++;
-                            resolve();
-                            return;
-                        }
-                        const onReady = () => {
-                            loadedCount++;
-                            resolve();
-                        };
-                        video.addEventListener('canplaythrough', onReady, { once: true });
-                        video.addEventListener('error', onReady, { once: true });
-                    })
-            )
-        ).then(() => {});
+        const criticalReady = criticalVideos.length
+            ? Promise.all(criticalVideos.map(waitVideoReady)).then(() => {})
+            : Promise.resolve();
+
+        const allReady = Promise.all(allVideos.map(waitVideoReady)).then(() => {});
 
         return {
-            getProgress: () => (total > 0 ? loadedCount / total : 1),
-            promise,
+            getProgress: () => {
+                if (!criticalVideos.length) return 1;
+                let sum = 0;
+                for (const video of criticalVideos) {
+                    sum += this.getVideoBufferProgress(video);
+                }
+                return sum / criticalVideos.length;
+            },
+            criticalReady,
+            allReady,
         };
+    }
+
+    /**
+     * 0〜1。再生可能（readyState >= 3）で 1。
+     * それ以前は buffered/duration でまだら進捗。error は 1（ゲートを止めない）。
+     */
+    private getVideoBufferProgress(video: HTMLVideoElement): number {
+        if (video.error) return 1;
+        if (video.readyState >= 3) return 1;
+
+        const duration = video.duration;
+        if (Number.isFinite(duration) && duration > 0 && video.buffered.length > 0) {
+            try {
+                const end = video.buffered.end(video.buffered.length - 1);
+                // ready 前は 1 未満に抑え、完了判定は readyState >= 3 に任せる
+                return Math.min(0.99, Math.max(0, end / duration));
+            } catch {
+                // buffered range が一時的に読めない場合
+            }
+        }
+
+        return Math.min(0.99, video.readyState / 4);
     }
 
     private showNoise(opts?: { duration?: number; ease?: string }) {

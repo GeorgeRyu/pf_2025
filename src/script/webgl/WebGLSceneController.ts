@@ -299,10 +299,10 @@ export class WebGLSceneController {
             webglContainer.style.opacity = '1';
         }
 
-        // 動画プリロード開始（Phase1の進捗取得用）
-        const { getProgress, promise: videosLoaded } = this.plateContent.preloadVideos();
+        // 全動画は裏読み開始。Phase1 は Works 先頭2本のバッファ進捗のみ連動
+        const { getProgress } = this.plateContent.preloadVideos({ criticalCount: 2 });
 
-        // ローディングアニメーション（Phase1: 動画進捗連動 / Phase2: tween）
+        // ローディングアニメーション（Phase1: 2本進捗連動 / Phase2: tween）
         await this.theatre.playLoadingAnimation(getProgress, () => {
             const fadeInItems = gsap.utils.toArray('[loading-name="text"]');
 
@@ -318,7 +318,8 @@ export class WebGLSceneController {
             }
         });
 
-        await Promise.all([aboutImagePromise, photosPromise, videosLoaded]);
+        // 残り動画の完了は待たない（scroll.attach をブロックしない）
+        await Promise.all([aboutImagePromise, photosPromise]);
 
         // photos ロード完了後にテーマ色を反映（ロード前に theme.apply が走っているため再実行）
         this.theme.apply();
