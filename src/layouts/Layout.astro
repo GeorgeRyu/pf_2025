@@ -18,6 +18,12 @@ import LockModal from '../components/LockModal.astro';
 		<title>Astro Basics</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+		<script is:inline>
+			if ('scrollRestoration' in history) {
+				history.scrollRestoration = 'manual';
+			}
+		</script>
+
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital@0;1&display=swap" rel="stylesheet">

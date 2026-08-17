@@ -88,6 +88,9 @@ export class App {
 
         // Lenisスムーススクロールを初期化
         this.lenisSmoothScroll = new LenisSmoothScroll();
+        // リロード時は必ずページトップから開始
+        window.scrollTo(0, 0);
+        this.lenisSmoothScroll.scrollTo(0, { immediate: true });
         this.colorTheme = new ColorTheme();
         this.projectModal = new ProjectModal();
 
