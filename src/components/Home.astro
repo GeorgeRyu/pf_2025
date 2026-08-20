@@ -255,11 +255,23 @@ const playgrounds = [
 <style lang="scss" is:global>
 
 	@keyframes link-inside-animation {
+		// 0% {
+		// 	opacity: 1;
+		// }
+		// 50% {
+		// 	opacity: 0;
+		// }
 		0% {
+			opacity: 0;
+		}
+		25% {
 			opacity: 1;
 		}
 		50% {
 			opacity: 0;
+		}
+		75% {
+			opacity: 1;
 		}
 	}
 
@@ -268,24 +280,28 @@ const playgrounds = [
 		display: flex;
 		align-items: center;
 		justify-content: start;
+		width: fit-content;
+
 		&:hover {
+			color: var(--c-base);
 			&::before {
-				transform: scale(1);
-				animation: link-inside-animation 1.4s steps(1, end) infinite 0.5s;
+				opacity: 1;
+				animation: link-inside-animation 0.25s steps(6, end) forwards;
 			}
 		}
 
 		&::before {
 			position: absolute;
-			top: calc(50% - var(--s-more-4) / 2);
-			right: calc(100% + 0.5em);
+			top: 0;
+			left: -1em;
 			content: '';
 			display: block;
-			width: var(--s-more-4);
-			height: var(--s-more-4);
+			// width: var(--s-more-4);
+			width: calc(100% + 1em);
+			height: 100%;
 			background-color: var(--c-accent);
-			transform: scale(0);
-			transition: margin 0.3s ease-in-out, transform 0.3s ease-in-out;
+			opacity: 0;
+			z-index: -1;
 		}
 	}
 
