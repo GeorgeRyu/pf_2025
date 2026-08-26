@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import plateVertexShader from '../shaders/plateVertex.glsl?raw';
 import plateFragmentShader from '../shaders/plateFragment.glsl?raw';
 import type { AboutImageConfig } from '../types';
+import { createCharacterAtlas } from './CharacterAtlas';
 
 export const PLATE_SIZE = 38;
 
@@ -12,6 +13,7 @@ export type WorksPlateMesh = {
 
 export function createWorksPlateMesh(aboutConfig: AboutImageConfig): WorksPlateMesh {
     const geometry = new THREE.PlaneGeometry(PLATE_SIZE, PLATE_SIZE);
+    const charAtlas = createCharacterAtlas();
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -38,6 +40,9 @@ export function createWorksPlateMesh(aboutConfig: AboutImageConfig): WorksPlateM
             imageMouseSoftness: { value: aboutConfig.mouseSoftness },
             duotoneLight: { value: new THREE.Color(1, 1, 1) },
             duotoneDark: { value: new THREE.Color(0, 0, 0) },
+            charAtlas: { value: charAtlas.texture },
+            charAtlasGrid: { value: new THREE.Vector2(charAtlas.cols, charAtlas.rows) },
+            charCellSize: { value: aboutConfig.charCellSize },
             staticNoiseMode: { value: 0.0 },
             barUvRemap: { value: 0.0 },
             barUvMin: { value: new THREE.Vector2(0, 0) },
@@ -68,4 +73,5 @@ export function applyAboutImageUniforms(
     u.imageMouseRadius.value = config.mouseRadius;
     u.imageMouseSoftness.value = config.mouseSoftness;
     u.imageMouseStrength.value = isPC ? config.mousePcStrength : 0.0;
+    u.charCellSize.value = config.charCellSize;
 }

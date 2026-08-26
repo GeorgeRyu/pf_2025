@@ -26,6 +26,11 @@ uniform float imageMouseSoftness;  // スポット境界のなめらかさ (0..1
 uniform vec3 duotoneLight;  // 明部（--c-base）
 uniform vec3 duotoneDark;   // 暗部（--c-accent）
 
+// ----- 文字密度アート（About: 写真を文字グリッドで表現） -----
+uniform sampler2D charAtlas;   // 文字グリフのアトラステクスチャ
+uniform vec2 charAtlasGrid;    // アトラスの列数・行数
+uniform float charCellSize;    // 1文字セルのプレートUVサイズ
+
 // ----- Playground 未開発枠: TVノイズ -----
 uniform float staticNoiseMode; // 0=通常, 1=白黒スタティック
 
@@ -82,13 +87,30 @@ float computeImageReveal(vec2 uv) {
     return clamp(baseReveal + spotReveal, 0.0, 1.0);
 }
 
-// 写真の輝度からテーマ2色で置き換え
-vec3 applyDuotone(vec3 imgRgb) {
+// 写真を文字グリッドで表現する。
+// セル固定のハッシュで文字（グリフ）を1つ選び、その文字の見え方の濃さを
+// 写真のそのセルの明るさで決める（文字の形自体は輝度で変えない）。
+vec3 applyAsciiText(sampler2D tex, vec2 plateUv, vec2 uvScale, vec2 uvOffset) {
+    float cellSize = max(charCellSize, 1e-4);
+    vec2 cell = floor(plateUv / cellSize);
+    vec2 localUv = fract(plateUv / cellSize);
+
+    // セル中心でピクセレーションサンプリング（1セル = 1輝度値）
+    vec2 photoUv = (cell + 0.5) * cellSize * uvScale + uvOffset;
+    vec3 imgRgb = texture2D(tex, photoUv).rgb;
     float luma = dot(imgRgb, vec3(0.299, 0.587, 0.114));
     luma = smoothstep(0.06, 0.92, luma);
+
+    // セル固定のハッシュで文字を1つ選ぶ（フレーム間で不変）
+    float count = charAtlasGrid.x * charAtlasGrid.y;
+    float charIndex = floor(hash21(cell) * count);
+    vec2 charCell = vec2(mod(charIndex, charAtlasGrid.x), floor(charIndex / charAtlasGrid.x));
+    vec2 charUv = (charCell + localUv) / charAtlasGrid;
+    float glyphMask = texture2D(charAtlas, charUv).r;
+
     vec3 light = toSRGB(duotoneLight);
     vec3 dark = toSRGB(duotoneDark);
-    return mix(dark, light, luma);
+    return mix(dark, light, glyphMask * luma);
 }
 
 // プレート全体 UV → フォーカスバー内ローカル UV（0..1）
@@ -131,12 +153,10 @@ void main() {
 
         // --- 画像モードの fadeOut: リビールを 0 に縮める ---
         if (imageMode > 0.5) {
-            vec2 uv = vUv * uvScaleA + uvOffsetA;
-            vec4 img = texture2D(textureA, uv);
             float reveal = computeImageReveal(vUv);
             reveal *= (1.0 - smoothstep(0.0, 0.7, t));
             vec3 base = toSRGB(baseColor);
-            vec3 duotoned = applyDuotone(img.rgb);
+            vec3 duotoned = applyAsciiText(textureA, vUv, uvScaleA, uvOffsetA);
             gl_FragColor = vec4(mix(base, duotoned, reveal), 1.0);
             return;
         }
@@ -166,15 +186,12 @@ void main() {
     // ピクセレーションは使わず、ノイズで自然にリビール
     // ========================================
     if (imageMode > 0.5) {
-        vec2 uv = vUv * uvScaleB + uvOffsetB;
-        vec4 img = texture2D(textureB, uv);
-
         float reveal = computeImageReveal(vUv);
         // 立ち上がりに合わせて 0→max にイージング
         reveal *= smoothstep(0.0, 1.0, progress);
 
         vec3 base = toSRGB(baseColor);
-        vec3 duotoned = applyDuotone(img.rgb);
+        vec3 duotoned = applyAsciiText(textureB, vUv, uvScaleB, uvOffsetB);
         gl_FragColor = vec4(mix(base, duotoned, reveal), 1.0);
         return;
     }

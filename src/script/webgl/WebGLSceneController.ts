@@ -334,6 +334,8 @@ export class WebGLSceneController {
                 getGroupRectangles: () => this.groupRectangles,
                 getRectangles: () => this.rectangles,
                 getWorksPlate: () => this.worksPlate,
+                getAboutImageConfig: () => this.aboutImageConfig,
+                onAboutImageConfigChange: (partial) => this.setAboutImageConfig(partial),
             });
         }
     }

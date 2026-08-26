@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import Stats from 'stats.js';
 import { GUI } from 'lil-gui';
+import type { AboutImageConfig } from '../types';
 
 export type WebGLDebugDeps = {
     getGroupRectangles: () => THREE.Group;
     getRectangles: () => THREE.Mesh[];
     getWorksPlate: () => THREE.Mesh;
+    getAboutImageConfig?: () => AboutImageConfig;
+    onAboutImageConfigChange?: (partial: Partial<AboutImageConfig>) => void;
 };
 
 /**
@@ -52,5 +55,17 @@ export class WebGLDebugPanel {
         worksPlateGroup.add(worksPlate.position, 'y', -50, 50).name('Works Plate Pos Y');
         worksPlateGroup.add(worksPlate.position, 'z', -50, 50).name('Works Plate Pos Z');
 
+        this.setupAboutAsciiFolder(deps);
+    }
+
+    /** About セクションの文字密度アート表現用パラメータ調整UI */
+    private setupAboutAsciiFolder(deps: WebGLDebugDeps) {
+        const aboutConfig = deps.getAboutImageConfig?.();
+        if (!aboutConfig || !deps.onAboutImageConfigChange) return;
+
+        const notify = () => deps.onAboutImageConfigChange!({ ...aboutConfig });
+
+        const asciiFolder = this.gui.addFolder('About Ascii').close();
+        asciiFolder.add(aboutConfig, 'charCellSize', 0.005, 0.08, 0.001).onChange(notify);
     }
 }

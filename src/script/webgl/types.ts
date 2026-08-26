@@ -14,7 +14,7 @@ export type ActiveSection =
     | 'playground'
     | 'thx';
 
-export const ABOUT_IMAGE_URL = '/images/about/my-01.jpg';
+export const ABOUT_IMAGE_URL = '/images/about/my-face.png';
 export const ABOUT_IMAGE_KEY = 'about';
 
 /** About 画像モード（シェーダー）の演出パラメータ */
@@ -25,6 +25,8 @@ export type AboutImageConfig = {
     mouseRadius: number;
     mouseSoftness: number;
     mousePcStrength: number;
+    /** 文字密度アート表現の1セルあたりのプレートUVサイズ */
+    charCellSize: number;
 };
 
 export const DEFAULT_ABOUT_IMAGE_CONFIG: AboutImageConfig = {
@@ -34,4 +36,5 @@ export const DEFAULT_ABOUT_IMAGE_CONFIG: AboutImageConfig = {
     mouseRadius: 0.3,
     mouseSoftness: 1.75,
     mousePcStrength: 0.5,
+    charCellSize: 0.02,
 };
