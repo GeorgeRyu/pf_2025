@@ -25,6 +25,27 @@ export function getAnchorScrollTop(target) {
 }
 
 /**
+ * 主要5セクションの先頭スクロール位置。
+ * WebGL ゾーン判定とスナップ先で同じ値を使う。
+ */
+export function getSectionZoneBoundaries() {
+    const d = scrollDistanceUnit;
+    return {
+        works: 0,
+        about: d * 2,
+        photos: d * 4,
+        playground: d * 4.5,
+        thx: d * 8,
+    };
+}
+
+/** スナップ用アンカー（先頭から順） */
+export function getSectionSnapAnchors() {
+    const z = getSectionZoneBoundaries();
+    return [z.works, z.about, z.photos, z.playground, z.thx];
+}
+
+/**
  * 横幅変更時に innerHeight 基準を再取得する。
  * @returns {{ oldUnit: number, newUnit: number }}
  */
@@ -58,6 +79,7 @@ export function initScrollDistanceResize() {
             resetListeners.forEach((fn) => fn());
 
             const nextScroll = scrollY * ratio;
+            window.scrollSnap?.suppress(0.2);
             if (lenis) {
                 lenis.scrollTo(nextScroll, { immediate: true });
             } else {

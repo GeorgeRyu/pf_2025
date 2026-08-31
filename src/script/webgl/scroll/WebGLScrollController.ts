@@ -1,7 +1,7 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import type { ISheet } from '@theatre/core';
-import { getScrollDistanceUnit, onScrollDistanceReset } from '../../scroll-distance.js';
+import { getScrollDistanceUnit, getSectionZoneBoundaries, onScrollDistanceReset } from '../../scroll-distance.js';
 import type { PlateContentController } from '../content/PlateContentController';
 import { ABOUT_IMAGE_KEY, type ActiveSection } from '../types';
 
@@ -62,15 +62,16 @@ export class WebGLScrollController {
 
     private attachScrollTriggers() {
         const distanceHeight = getScrollDistanceUnit();
+        const zones = getSectionZoneBoundaries();
         const body = document.querySelector('body');
         const sequenceLength = this.deps.getSequenceLength();
         const theatreSheet = this.deps.getTheatreSheet();
 
         const sections = [
-            { start: 0.2, end: 0.4, scrollStart: distanceHeight * 0.5, scrollEnd: distanceHeight * 2 },
-            { start: 0.4, end: 0.6, scrollStart: distanceHeight * 2.5, scrollEnd: distanceHeight * 4 },
-            { start: 0.6, end: 0.8, scrollStart: distanceHeight * 4.5, scrollEnd: distanceHeight * 6 },
-            { start: 0.8, end: 1.0, scrollStart: distanceHeight * 6.5, scrollEnd: distanceHeight * 8 },
+            { start: 0.2, end: 0.4, scrollStart: distanceHeight * 0.5, scrollEnd: zones.about },
+            { start: 0.4, end: 0.6, scrollStart: zones.about + distanceHeight * 0.5, scrollEnd: zones.photos },
+            { start: 0.6, end: 0.8, scrollStart: zones.playground, scrollEnd: distanceHeight * 6 },
+            { start: 0.8, end: 1.0, scrollStart: distanceHeight * 6.5, scrollEnd: zones.thx },
         ];
 
         sections.forEach((section) => {
@@ -92,8 +93,8 @@ export class WebGLScrollController {
             this.scrollTriggers.push(trigger);
         });
 
-        const aboutZoneStart = sections[0].scrollEnd;
-        const aboutZoneEnd = sections[1].scrollStart;
+        const aboutZoneStart = zones.about;
+        const aboutZoneEnd = zones.about + distanceHeight * 0.5;
         const aboutTrigger = ScrollTrigger.create({
             trigger: body,
             start: `${aboutZoneStart} center`,
@@ -106,10 +107,8 @@ export class WebGLScrollController {
         });
         this.scrollTriggers.push(aboutTrigger);
 
-        // Photos ゾーン: sections[1] 〜 sections[2].scrollStart
-        // const photosZoneStart = sections[1].scrollStart;
-        const photosZoneStart = sections[1].scrollEnd;
-        const photosZoneEnd = sections[2].scrollStart;
+        const photosZoneStart = zones.photos;
+        const photosZoneEnd = zones.playground;
         const photosTrigger = ScrollTrigger.create({
             trigger: body,
             start: `${photosZoneStart} 10%`,
@@ -122,9 +121,8 @@ export class WebGLScrollController {
         });
         this.scrollTriggers.push(photosTrigger);
 
-        // Playground ゾーン: sections[2].scrollStart 〜 sections[3].scrollEnd
-        const playgroundZoneStart = sections[2].scrollStart;
-        const playgroundZoneEnd = sections[3].scrollEnd;
+        const playgroundZoneStart = zones.playground;
+        const playgroundZoneEnd = zones.thx;
         const playgroundTrigger = ScrollTrigger.create({
             trigger: body,
             start: `${playgroundZoneStart} top`,

@@ -3,6 +3,7 @@ import { LenisSmoothScroll } from "./lenis-smooth-scroll.js";
 import { ProjectModal } from "./project-modal.js";
 import { ColorTheme } from "./color-theme.js";
 import { getAnchorScrollTop, initScrollDistanceResize } from "./scroll-distance.js";
+import { ScrollSnap } from "./scroll-snap.js";
 import Alpine from "alpinejs";
 
 // PFApp関数をグローバルに定義（Alpine.jsの初期化前に実行）
@@ -56,6 +57,7 @@ window.PFApp = function() {
                         offset: 0,
                     }
                 );
+                window.app?.scrollSnap?.suppress(3.5);
             } else {
                 // フォールバック: 通常のスクロール
                 window.scrollTo({
@@ -95,6 +97,8 @@ export class App {
         this.projectModal = new ProjectModal();
 
         window.scrollAnimations = new ScrollAnimations();
+        this.scrollSnap = new ScrollSnap();
+        window.scrollSnap = this.scrollSnap;
         initScrollDistanceResize();
     }
 }
