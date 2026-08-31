@@ -22,6 +22,9 @@ export type WebGLScrollControllerDeps = {
 export class WebGLScrollController {
     private scrollTriggers: ScrollTrigger[] = [];
     private activeSection: ActiveSection = 'loading';
+    /** ゾーンごとの表示済みフラグ。副作用の重複実行防止は activeSection ではなくこちらで行う */
+    private aboutVisible = false;
+    private photosVisible = false;
     private unregisterResize: (() => void) | null = null;
 
     constructor(private readonly deps: WebGLScrollControllerDeps) {}
@@ -98,8 +101,8 @@ export class WebGLScrollController {
             markers: false,
             onEnter: () => this.enterAboutZone(),
             onEnterBack: () => this.enterAboutZone(),
-            onLeave: () => this.leaveAboutZone('forward'),
-            onLeaveBack: () => this.leaveAboutZone('backward'),
+            onLeave: () => this.leaveAboutZone(),
+            onLeaveBack: () => this.leaveAboutZone(),
         });
         this.scrollTriggers.push(aboutTrigger);
 
@@ -114,8 +117,8 @@ export class WebGLScrollController {
             markers: false,
             onEnter: () => this.enterPhotosZoneFromForward(),
             onEnterBack: () => this.enterPhotosZoneFromForward(),
-            onLeave: () => this.leavePhotosZone('forward'),
-            onLeaveBack: () => this.leavePhotosZone('backward'),
+            onLeave: () => this.leavePhotosZone(),
+            onLeaveBack: () => this.leavePhotosZone(),
         });
         this.scrollTriggers.push(photosTrigger);
 
@@ -129,47 +132,49 @@ export class WebGLScrollController {
             markers: false,
             onEnter: () => this.enterPlaygroundZone(),
             onEnterBack: () => this.enterPlaygroundZone(),
-            onLeave: () => this.leavePlaygroundZone('forward'),
-            onLeaveBack: () => this.leavePlaygroundZone('backward'),
+            onLeave: () => this.leavePlaygroundZone(),
+            onLeaveBack: () => this.leavePlaygroundZone(),
         });
         this.scrollTriggers.push(playgroundTrigger);
     }
 
     private enterAboutZone() {
-        if (this.activeSection === 'about') return;
         this.activeSection = 'about';
+        if (this.aboutVisible) return;
+        this.aboutVisible = true;
         this.deps.plateContent.show(
             { kind: 'image', key: ABOUT_IMAGE_KEY },
             { duration: 1.8, ease: 'power3.out' }
         );
     }
 
-    private leaveAboutZone(direction: 'forward' | 'backward') {
-        if (this.activeSection !== 'about') return;
+    private leaveAboutZone() {
         this.activeSection = 'works';
+        if (!this.aboutVisible) return;
+        this.aboutVisible = false;
         this.deps.plateContent.clear({ duration: 1.2 });
     }
 
     private enterPhotosZoneFromForward() {
-        if (this.activeSection === 'photos') return;
         this.activeSection = 'photos';
+        if (this.photosVisible) return;
+        this.photosVisible = true;
         this.deps.onPhotosEnter?.();
     }
 
-    private leavePhotosZone(direction: 'forward' | 'backward') {
-        if (this.activeSection !== 'photos') return;
-        this.activeSection = direction === 'backward' ? 'about' : 'playground';
+    private leavePhotosZone() {
+        this.activeSection = 'works';
+        if (!this.photosVisible) return;
+        this.photosVisible = false;
         this.deps.onPhotosLeave?.();
     }
 
     private enterPlaygroundZone() {
-        if (this.activeSection === 'playground') return;
         this.activeSection = 'playground';
     }
 
-    private leavePlaygroundZone(direction: 'forward' | 'backward') {
-        if (this.activeSection !== 'playground') return;
-        this.activeSection = direction === 'backward' ? 'photos' : 'thx';
+    private leavePlaygroundZone() {
+        this.activeSection = 'works';
         this.deps.onPlaygroundLeave?.();
     }
 }
