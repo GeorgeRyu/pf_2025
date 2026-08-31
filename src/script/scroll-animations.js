@@ -229,34 +229,6 @@ export class ScrollAnimations {
         });
     }
 
-    worksInOut() {
-        const worksInfo = document.querySelector('[data-name="works-info"]');
-        const worksInfoItems = gsap.utils.toArray('[data-name="kinetic-txt"]');
-        const originalTexts = worksInfoItems.map(item => item.dataset.text);
-
-        const tlShowTxt = gsap.timeline();
-
-        tlShowTxt.to(worksInfoItems, {
-            duration: 1,
-            scrambleText: {
-                text: (index) => originalTexts[index],
-                chars: this.chars,
-                revealDelay: 0.01,
-                speed: 0.01
-            },
-            ease: "none",
-            stagger: 0.03,
-        });
-
-        const startAnimation = () => tlShowTxt.play();
-        const reverseAnimation = () => tlShowTxt.reverse();
-
-        return {
-            start: startAnimation,
-            reverse: reverseAnimation
-        };
-    }
-
     getRandomElement(array) {
         return array[Math.floor(Math.random() * array.length)];
     }

@@ -191,8 +191,8 @@ const playgrounds = [
 							</ul>
 						</div>
 						<div class="grid grid-cols-1 gap-y-[1em]">
-							<p>{project.description}</p>
-							<p>{project.descriptionEn}</p>
+							<p set:text={project.description}></p>
+							<p set:text={project.descriptionEn}></p>
 						</div>
 					</div>
 				</header>
@@ -200,7 +200,7 @@ const playgrounds = [
 				<div class="grid grid-cols-2 gap-x-[8px] gap-y-[1em] mt-16 lg:mt-[6em] lg:gap-y-[2em] lg:gap-x-[1em]">
 					{ project.hero && (
 						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
-							<Image src={project.hero || "/placeholder.svg"} alt={project.title} width={1600} height={900} class="w-full h-full object-cover"></Image>
+							<Image src={project.hero} alt={project.title} width={1600} height={900} class="w-full h-full object-cover"></Image>
 						</div>
 					)}
 					{ project.movieMotion01 && (
