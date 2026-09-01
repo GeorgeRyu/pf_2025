@@ -5,17 +5,15 @@ import { WebGLSceneContext } from './core/WebGLSceneContext';
 import { PlateContentController } from './content/PlateContentController';
 import { WebGLScrollController } from './scroll/WebGLScrollController';
 import { TheatreController } from './theatre/TheatreController';
-import { WebGLTheme } from './theme/WebGLTheme';
-import { WorksHoverController } from './interaction/WorksHoverController';
-import { PlaygroundHoverController } from './interaction/PlaygroundHoverController';
-import { PlaygroundBarsController } from './interaction/PlaygroundBarsController';
-import { computeBarUvBounds, calcCoverUvTransform } from './interaction/playgroundBarUv';
-import { AboutPointerController } from './interaction/AboutPointerController';
+import { PlaygroundBarsController, computeBarUvBounds, calcCoverUvTransform } from './interaction/PlaygroundBarsController';
+import {
+    WorksHoverController,
+    PlaygroundHoverController,
+} from './interaction/SectionHoverControllers';
 import { PhotosInteractionController } from './interaction/PhotosInteractionController';
 import { WebGLDebugPanel } from './debug/WebGLDebugPanel';
-import { buildWebGLSceneMeshes } from './scene/buildWebGLSceneMeshes';
+import { buildWebGLSceneMeshes, applyAboutImageUniforms } from './scene/createSceneMeshes';
 import { bindWebGLSceneLayout } from './scene/WebGLSceneLayout';
-import { applyAboutImageUniforms } from './scene/WorksPlateMesh';
 import { PhotosPillarPlanes } from './scene/PhotosPillarPlanes';
 import {
     ABOUT_IMAGE_KEY,
@@ -40,11 +38,12 @@ export class WebGLSceneController {
     private plateContent!: PlateContentController;
     private scroll!: WebGLScrollController;
     private theatre!: TheatreController;
-    private theme!: WebGLTheme;
     private plateShaderMaterial!: THREE.ShaderMaterial;
     private aboutImageConfig: AboutImageConfig = { ...DEFAULT_ABOUT_IMAGE_CONFIG };
     private isPC = false;
     private mouseUvTarget = new THREE.Vector2(0.5, 0.5);
+    private readonly aboutRaycaster = new THREE.Raycaster();
+    private readonly aboutPointerNdc = new THREE.Vector2();
     // デフォルトカメラ位置（PC/SP で bindWebGLSceneLayout が上書きする）
     private defaultCameraZ = 5;
     private defaultCameraX = 0;
@@ -135,15 +134,10 @@ export class WebGLSceneController {
                 this.playgroundHover?.reset();
             },
         });
-        this.theme = new WebGLTheme({
-            getRectangleMaterials: () => this.rectangleMaterials,
-            getPlateShaderMaterial: () => this.plateShaderMaterial,
-            getPhotosPillarPlanes: () => this.photosPillarPlanes,
-        });
 
         this.init();
-        this.theme.apply();
-        this.theme.attach();
+        this.applyTheme();
+        this.attachTheme();
         new WorksHoverController({
             plateContent: this.plateContent,
             getActiveSection: () => this.scroll.getActiveSection(),
@@ -239,7 +233,7 @@ export class WebGLSceneController {
         this.worksPlate = meshes.worksPlate;
         this.plateShaderMaterial = meshes.plateShaderMaterial;
 
-        this.theme.apply();
+        this.applyTheme();
         this.scene.add(this.worksPlate);
         this.scene.add(this.photosPillarPlanes.group);
 
@@ -260,13 +254,7 @@ export class WebGLSceneController {
 
         this.scene.add(this.groupRectangles);
 
-        new AboutPointerController({
-            getWorksPlate: () => this.worksPlate,
-            getCamera: () => this.camera,
-            isPC: () => this.isPC,
-            getActiveSection: () => this.scroll.getActiveSection(),
-            mouseUvTarget: this.mouseUvTarget,
-        }).attach();
+        this.attachAboutPointer();
 
         const aboutImagePromise = this.plateContent.loadImageTexture(
             ABOUT_IMAGE_KEY,
@@ -321,8 +309,8 @@ export class WebGLSceneController {
         // 残り動画の完了は待たない（scroll.attach をブロックしない）
         await Promise.all([aboutImagePromise, photosPromise]);
 
-        // photos ロード完了後にテーマ色を反映（ロード前に theme.apply が走っているため再実行）
-        this.theme.apply();
+        // photos ロード完了後にテーマ色を反映（ロード前に applyTheme が走っているため再実行）
+        this.applyTheme();
 
         this.scroll.setActiveSection('works');
         this.scroll.attach();
@@ -344,5 +332,54 @@ export class WebGLSceneController {
         Object.assign(this.aboutImageConfig, partial);
         if (!this.plateShaderMaterial) return;
         applyAboutImageUniforms(this.plateShaderMaterial, this.aboutImageConfig, this.isPC);
+    }
+
+    private applyTheme() {
+        const accent = readCssVarColor('--c-accent', '#000000');
+        const base = readCssVarColor('--c-base', '#ffffff');
+
+        this.rectangleMaterials.forEach((m) => m.color.copy(accent));
+
+        const plateShaderMaterial = this.plateShaderMaterial;
+        if (plateShaderMaterial?.uniforms?.baseColor) {
+            const u = plateShaderMaterial.uniforms;
+            (u.baseColor.value as THREE.Color).copy(accent);
+            (u.duotoneLight.value as THREE.Color).copy(base);
+            (u.duotoneDark.value as THREE.Color).copy(accent);
+        }
+
+        this.photosPillarPlanes?.setDuotoneColors(base, accent);
+    }
+
+    private attachTheme() {
+        window.addEventListener('pf:color-theme-change', () => this.applyTheme());
+    }
+
+    private attachAboutPointer() {
+        window.addEventListener('pointermove', this.onAboutPointerMove);
+    }
+
+    private onAboutPointerMove = (e: PointerEvent) => {
+        if (!this.isPC || this.scroll.getActiveSection() !== 'about') return;
+        if (!this.worksPlate) return;
+
+        this.aboutPointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
+        this.aboutPointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        this.aboutRaycaster.setFromCamera(this.aboutPointerNdc, this.camera);
+        const hits = this.aboutRaycaster.intersectObject(this.worksPlate, false);
+        if (hits.length > 0 && hits[0].uv) {
+            this.mouseUvTarget.copy(hits[0].uv);
+        }
+    }
+}
+
+function readCssVarColor(varName: string, fallbackHex: string): THREE.Color {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    const value = raw || fallbackHex;
+    try {
+        return new THREE.Color(value);
+    } catch {
+        return new THREE.Color(fallbackHex);
     }
 }

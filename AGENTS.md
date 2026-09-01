@@ -11,6 +11,7 @@
 
 - DOM / Alpine / Lenis: `src/script/app.js`
 - WebGL 入口: `src/components/webgl/WebGLScene.astro` → `src/script/webgl/WebGLSceneController.ts`
+- メッシュ構築: `src/script/webgl/scene/createSceneMeshes.ts`
 - コンテンツ: `src/lib/projects.js`、nav は `src/components/Home.astro`
 
 ## 設計
