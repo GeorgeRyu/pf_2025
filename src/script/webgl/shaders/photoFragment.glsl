@@ -21,7 +21,8 @@ vec3 applyDuotone(vec3 rgb) {
 void main() {
     vec2 uv = vUv * uvScale + uvOffset;
     vec4 img = texture2D(map, uv);
+    vec3 original = toSRGB(img.rgb);
     vec3 duotoned = applyDuotone(img.rgb);
-    vec3 col = mix(img.rgb, duotoned, duotoneMix);
+    vec3 col = mix(original, duotoned, duotoneMix);
     gl_FragColor = vec4(col, img.a * opacity);
 }

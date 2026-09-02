@@ -108,9 +108,8 @@ export class WebGLSceneController {
         this.photosInteraction = new PhotosInteractionController({
             getCamera: () => this.camera,
             getRenderer: () => this.context.renderer,
-            getDefaultCameraZ: () => this.defaultCameraZ,
-            getDefaultCameraXY: () => ({ x: this.defaultCameraX, y: this.defaultCameraY }),
             getPhotosPillarPlanes: () => this.photosPillarPlanes,
+            isPC: () => this.isPC,
         });
 
         this.playgroundBars = new PlaygroundBarsController({
@@ -127,8 +126,8 @@ export class WebGLSceneController {
                 this.photosInteraction.attach(this.photosPillarPlanes.planes);
             },
             onPhotosLeave: () => {
-                this.photosPillarPlanes.hide();
                 this.photosInteraction.detach();
+                this.photosPillarPlanes.hide();
             },
             onPlaygroundLeave: () => {
                 this.playgroundHover?.reset();
@@ -207,6 +206,7 @@ export class WebGLSceneController {
             getActiveSection: () => this.scroll.getActiveSection(),
             getMouseUvTarget: () => this.mouseUvTarget,
             getPhotoPlanesGroup: () => this.photosPillarPlanes.group,
+            getPhotosPillarFading: () => this.photosPillarPlanes.isPillarFading(),
             getPlaygroundFocusedIndex: () => this.playgroundBars.getFocusedIndex(),
             onTick: (time) => {
                 this.theatre.tick(time);

@@ -3,7 +3,11 @@ import SoundBtn from './SoundBtn.astro';
 import ColorThemeBtn from './ColorThemeBtn.astro';
 ---
 
-<header class="fixed top-0 left-0 grid grid-cols-2 gap-x-[8px] text-accent mix-blend-differenceOld items-start w-full h-auto pt-s-20-60 px-s-16-60 z-50 lg:grid-cols-6 lg:gap-x-4 lg:pt-more-40 lg:pointer-events-none">
+<header
+    class="fixed top-0 left-0 grid grid-cols-2 gap-x-[8px] text-accent mix-blend-differenceOld items-start w-full h-auto pt-s-20-60 px-s-16-60 z-50 transition-opacity lg:grid-cols-6 lg:gap-x-4 lg:pt-more-40 lg:pointer-events-none"
+    :class="isPhotoActive ? 'opacity-0 pointer-events-none duration-[600ms] [&_*]:pointer-events-none' : 'duration-[540ms]'"
+    :inert="isPhotoActive"
+>
     <div class="grid grid-cols-1 gap-y-5">
         <h1 loading-name='text' class="">RYU<br>TAKAHASHI</h1>
         <p loading-name='text'>WEB DEVELOPER</p>

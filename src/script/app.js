@@ -12,6 +12,8 @@ window.PFApp = function() {
         isSoundMenuOpen: false,
         isColorThemeMenuOpen: false,
         isMenuOpen: false,
+        isPhotoActive: false,
+        photoActiveTitle: '',
 
         // 初期化時にlenisの参照を取得
         initLenis() {
@@ -29,7 +31,7 @@ window.PFApp = function() {
         // lenisの制御メソッド
         controlLenis() {
             if (window.lenis && typeof window.lenis.stop === 'function') {
-                if (this.isMenuOpen || this.isSoundMenuOpen) {
+                if (this.isMenuOpen || this.isSoundMenuOpen || this.isPhotoActive) {
                     window.lenis.stop();
                 } else {
                     window.lenis.start();

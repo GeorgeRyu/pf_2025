@@ -1,24 +1,33 @@
 import * as THREE from 'three';
-import gsap from 'gsap';
 import type { PhotosPillarPlanes } from '../scene/PhotosPillarPlanes';
 
 export type PhotosInteractionDeps = {
     getCamera: () => THREE.PerspectiveCamera;
     getRenderer: () => THREE.WebGLRenderer;
-    getDefaultCameraZ: () => number;
-    getDefaultCameraXY: () => { x: number; y: number };
     getPhotosPillarPlanes: () => PhotosPillarPlanes | undefined;
+    isPC: () => boolean;
 };
 
+type AlpineRuntime = {
+    evaluate(el: HTMLElement, expression: string): unknown;
+};
+
+function setPFAppPhoto(active: boolean, title = '') {
+    const alpine = (window as Window & { Alpine?: AlpineRuntime }).Alpine;
+    if (!alpine) return;
+    alpine.evaluate(document.body, `photoActiveTitle = ${JSON.stringify(title)}`);
+    alpine.evaluate(document.body, `isPhotoActive = ${active}`);
+}
+
 /**
- * Photos プレーンへの Raycaster クリック → カメラズーム（横幅一杯）。
- * 再クリック or Esc でズームアウト＋Lenis スクロール再開。
+ * Photos プレーンへの Raycaster クリック → 写真がカメラへ寄って横幅一杯。
+ * 再クリック or Esc で復帰＋Lenis スクロール再開。
  */
 export class PhotosInteractionController {
     private planes: THREE.Mesh[] = [];
+    private titles: string[] = [];
     private isZoomed = false;
     private zoomedPlane: THREE.Mesh | null = null;
-    private cameraTween: gsap.core.Tween | null = null;
 
     private readonly raycaster = new THREE.Raycaster();
     private readonly pointer = new THREE.Vector2();
@@ -27,33 +36,50 @@ export class PhotosInteractionController {
 
     attach(planes: THREE.Mesh[]) {
         this.planes = planes;
+        this.titles = this.readTitles();
         window.addEventListener('click', this.onClick);
         window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('pointermove', this.onPointerMove);
     }
 
     detach() {
         this.planes = [];
         window.removeEventListener('click', this.onClick);
         window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('pointermove', this.onPointerMove);
+        this.setCursor(false);
         if (this.isZoomed) this.zoomOut();
     }
 
+    private onPointerMove = (e: PointerEvent) => {
+        if (!this.deps.isPC()) {
+            this.setCursor(false);
+            return;
+        }
+
+        const hits = this.intersectVisiblePlanes(e.clientX, e.clientY);
+        this.setCursor(hits.length > 0);
+    };
+
+    private setCursor(hovering: boolean) {
+        this.deps.getRenderer().domElement.style.cursor = hovering ? 'pointer' : '';
+    }
+
+    private intersectVisiblePlanes(clientX: number, clientY: number) {
+        this.pointer.x = (clientX / window.innerWidth) * 2 - 1;
+        this.pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+        this.raycaster.setFromCamera(this.pointer, this.deps.getCamera());
+        const worldPlanes = this.planes.filter((p) => p.visible);
+        return this.raycaster.intersectObjects(worldPlanes, false);
+    }
+
     private onClick = (e: MouseEvent) => {
-        const camera = this.deps.getCamera();
-        const renderer = this.deps.getRenderer();
-
-        this.pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-        this.pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-        this.raycaster.setFromCamera(this.pointer, camera);
-
         if (this.isZoomed) {
             this.zoomOut();
             return;
         }
 
-        const worldPlanes: THREE.Mesh[] = this.planes.filter((p) => p.visible);
-        const hits = this.raycaster.intersectObjects(worldPlanes, false);
+        const hits = this.intersectVisiblePlanes(e.clientX, e.clientY);
         if (hits.length > 0) {
             this.zoomIn(hits[0].object as THREE.Mesh);
         }
@@ -66,60 +92,51 @@ export class PhotosInteractionController {
     };
 
     private zoomIn(plane: THREE.Mesh) {
-        const camera = this.deps.getCamera();
-        const fovRad = (camera.fov * Math.PI) / 180;
-        const aspect = window.innerWidth / window.innerHeight;
-
-        const worldPos = new THREE.Vector3();
-        plane.getWorldPosition(worldPos);
-
-        // 画面横幅一杯になるカメラZ: planeWidth / (2 * tan(fov/2) * aspect) + planeZ
-        const planeWidth = 2;
-        const targetZ = worldPos.z + planeWidth / (2 * Math.tan(fovRad / 2) * aspect);
-
         this.isZoomed = true;
         this.zoomedPlane = plane;
 
-        if (this.cameraTween) this.cameraTween.kill();
-
         const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
         lenis?.stop();
+        this.setPhotoActive(true, plane);
 
-        this.cameraTween = gsap.to(camera.position, {
-            x: worldPos.x,
-            y: worldPos.y,
-            z: targetZ,
-            duration: 1.0,
-            ease: 'power3.out',
-        });
-
-        // duotone → オリジナルカラーへじわっと遷移
-        this.deps.getPhotosPillarPlanes()?.toOriginal(plane);
+        const photos = this.deps.getPhotosPillarPlanes();
+        photos?.toOriginal(plane);
+        photos?.hideOthers(plane);
+        photos?.bringForward(plane, this.deps.getCamera());
     }
 
     private zoomOut() {
-        if (this.cameraTween) this.cameraTween.kill();
-
-        // 状態を即座にリセット（トゥイーン完了を待たない。kill() で onComplete が呼ばれないため）
         const zoomedPlane = this.zoomedPlane;
         this.isZoomed = false;
         this.zoomedPlane = null;
         const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
         lenis?.start();
+        this.setPhotoActive(false, null);
 
-        const camera = this.deps.getCamera();
-        const defaultZ = this.deps.getDefaultCameraZ();
-        const { x, y } = this.deps.getDefaultCameraXY();
+        const photos = this.deps.getPhotosPillarPlanes();
+        photos?.toDuotone(zoomedPlane);
+        photos?.restoreForward();
+        photos?.restoreOthers();
+    }
 
-        this.cameraTween = gsap.to(camera.position, {
-            x,
-            y,
-            z: defaultZ,
-            duration: 0.9,
-            ease: 'power3.out',
-        });
+    private readTitles(): string[] {
+        const raw = document.querySelector('[data-photo-titles]')?.getAttribute('data-photo-titles');
+        if (!raw) return [];
+        try {
+            return JSON.parse(decodeURIComponent(raw)) as string[];
+        } catch {
+            return [];
+        }
+    }
 
-        // オリジナルカラー → duotone へじわっと遷移
-        this.deps.getPhotosPillarPlanes()?.toDuotone(zoomedPlane);
+    private setPhotoActive(active: boolean, plane: THREE.Mesh | null) {
+        if (active && plane) {
+            const index = typeof plane.userData.photoIndex === 'number'
+                ? plane.userData.photoIndex
+                : this.planes.indexOf(plane);
+            setPFAppPhoto(true, this.titles[index] ?? '');
+        } else {
+            setPFAppPhoto(false);
+        }
     }
 }

@@ -10,6 +10,7 @@ export type WebGLRenderLoopDeps = {
     getActiveSection: () => ActiveSection;
     getMouseUvTarget: () => THREE.Vector2;
     getPhotoPlanesGroup?: () => THREE.Group | null;
+    getPhotosPillarFading?: () => boolean;
     /** Playground ホバー中のフォーカスバー index。null なら通常描画 */
     getPlaygroundFocusedIndex?: () => number | null;
     onTick?: (time: number) => void;
@@ -37,6 +38,7 @@ export class WebGLSceneContext {
     }
 
     mount() {
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setClearColor(0x000000, 0);
         if (this.container) {
@@ -47,6 +49,7 @@ export class WebGLSceneContext {
     resize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
@@ -105,7 +108,13 @@ export class WebGLSceneContext {
                 gl,
             );
         } else {
-            this.renderDefaultStencil(worksPlate, groupRectangles, gl);
+            const rectangles = deps.getRectangles?.() ?? [];
+            const fading = deps.getPhotosPillarFading?.() ?? false;
+            if (fading) {
+                this.renderPhotosPillarFade(worksPlate, groupRectangles, rectangles, gl);
+            } else {
+                this.renderDefaultStencil(worksPlate, groupRectangles, gl);
+            }
         }
 
         // Pass: photo planes のみ、stencil なし、depth クリアで depth 干渉防止
@@ -149,6 +158,26 @@ export class WebGLSceneContext {
         groupRectangles.visible = false;
         gl.stencilFunc(gl.EQUAL, 1, 0xff);
         gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.colorMask(true, true, true, true);
+        gl.depthMask(true);
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    /**
+     * Photos ズーム中: ステンシルせず、柱を accent ベタの半透明として描く。
+     */
+    private renderPhotosPillarFade(
+        worksPlate: THREE.Mesh,
+        groupRectangles: THREE.Group,
+        rectangles: THREE.Mesh[],
+        gl: WebGLRenderingContext | WebGL2RenderingContext,
+    ) {
+        gl.disable(gl.STENCIL_TEST);
+        worksPlate.visible = false;
+        groupRectangles.visible = true;
+        rectangles.forEach((r) => {
+            r.visible = (r.material as THREE.MeshBasicMaterial).opacity > 0.001;
+        });
         gl.colorMask(true, true, true, true);
         gl.depthMask(true);
         this.renderer.render(this.scene, this.camera);

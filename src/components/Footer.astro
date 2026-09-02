@@ -2,7 +2,11 @@
 import SoundBtn from './SoundBtn.astro';
 ---
 
-<footer class="fixed bottom-0 left-0 grid grid-cols-2 gap-x-[8px] items-end w-full h-auto pb-s-20-60 px-s-16-60 text-accent mix-blend-differenceOld z-10 lg:grid-cols-6 lg:gap-x-4 lg:pb-more-40">
+<footer
+    class="fixed bottom-0 left-0 grid grid-cols-2 gap-x-[8px] items-end w-full h-auto pb-s-20-60 px-s-16-60 text-accent mix-blend-differenceOld z-10 transition-opacity lg:grid-cols-6 lg:gap-x-4 lg:pb-more-40"
+    :class="isPhotoActive ? 'opacity-0 pointer-events-none duration-[600ms]' : 'duration-[540ms]'"
+    :inert="isPhotoActive"
+>
     <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
 
     <div class="grid grid-cols-1 gap-y-4 lg:col-span-1 lg:col-start-5">
