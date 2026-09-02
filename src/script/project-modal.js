@@ -92,6 +92,7 @@ export class ProjectModal {
     this.focusArticle(target);
 
     this.currentSlug = slug;
+    this.syncWorksLinkActive(slug);
     this.updatePrevNext(target);
   }
 
@@ -101,6 +102,7 @@ export class ProjectModal {
     this.setVisible(this.modalContainer, false);
     this.currentSlug = null;
     this.isOpen = false;
+    this.syncWorksLinkActive(null);
     this.unlockPageScroll();
   }
 
@@ -142,6 +144,18 @@ export class ProjectModal {
     } else {
       linkEl.classList.add('opacity-40', 'pointer-events-none');
     }
+  }
+
+  syncWorksLinkActive(slug) {
+    this.openButtons.forEach((btn) => {
+      const isActive = Boolean(slug) && btn.dataset.projectSlug === slug;
+      btn.classList.toggle('is-active', isActive);
+      if (isActive) {
+        btn.setAttribute('aria-current', 'true');
+      } else {
+        btn.removeAttribute('aria-current');
+      }
+    });
   }
 
   getArticle(slug) {
