@@ -9,6 +9,8 @@ const PILLAR_TOP_LOCAL_Y = 35 / 2;  // +Y 面: BoxGeometry height=35 の半分
 const WORLD_FRONT_OFFSET = 0.01;    // z-fighting 防止（world 単位）
 const ZOOM_IN_DURATION = 0.6;
 const ZOOM_OUT_DURATION = 0.54;
+const RECEDE_DISTANCE_SP = 0.5;
+const RECEDE_DISTANCE_PC = 0.25;
 
 /** cover UV の scale / offset を計算して返す */
 function computeCoverUV(texture: THREE.Texture): { scale: THREE.Vector2; offset: THREE.Vector2 } {
@@ -77,6 +79,9 @@ export class PhotosPillarPlanes {
     private duotoneTweens: Map<THREE.Mesh, gsap.core.Tween> = new Map();
     private activePlane: THREE.Mesh | null = null;
     private pillarFading = false;
+    private readonly _recede = { z: 0 };
+    private _otherRestWorld: THREE.Vector3[] = [];
+    private _otherRestLocal: THREE.Vector3[] = [];
 
     private readonly _worldPos = new THREE.Vector3();
     private readonly _worldQuat = new THREE.Quaternion();
@@ -90,6 +95,13 @@ export class PhotosPillarPlanes {
     private readonly _xRot = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(1, 0, 0), -Math.PI / 2
     );
+    private readonly _xRotInv = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0), Math.PI / 2
+    );
+    private readonly _parentWorldQuat = new THREE.Quaternion();
+    private readonly _rectLocalPos = new THREE.Vector3();
+    private readonly _rectLocalQuat = new THREE.Quaternion();
+    private readonly _topOffset = new THREE.Vector3();
 
     async loadAndAttach(deps: PhotosPillarPlanesDeps): Promise<void> {
         this.rectangles = deps.rectangles;
@@ -198,6 +210,48 @@ export class PhotosPillarPlanes {
         });
     }
 
+    /**
+     * Theatre.tick 直後に呼ぶ。
+     * ズーム中の柱を写真の後ろへ追従させ、他の柱は開始位置から lookDir * recede だけ下げる。
+     */
+    applyActiveRectOverride() {
+        const plane = this.activePlane;
+        if (plane) {
+            const activeIndex = this.planes.indexOf(plane);
+            const rect = this.rectangles[activeIndex];
+            const parent = rect?.parent;
+            if (rect && parent) {
+                parent.updateMatrixWorld(true);
+
+                this._worldQuat.copy(plane.quaternion).multiply(this._xRotInv);
+                parent.getWorldQuaternion(this._parentWorldQuat);
+                this._rectLocalQuat.copy(this._parentWorldQuat).invert().multiply(this._worldQuat);
+
+                this._worldNormal.set(0, 1, 0).applyQuaternion(this._worldQuat);
+                this._worldPos.copy(plane.position).addScaledVector(this._worldNormal, -WORLD_FRONT_OFFSET);
+                parent.worldToLocal(this._rectLocalPos.copy(this._worldPos));
+                this._topOffset.set(0, PILLAR_TOP_LOCAL_Y * rect.scale.y, 0).applyQuaternion(this._rectLocalQuat);
+
+                rect.position.copy(this._rectLocalPos).sub(this._topOffset);
+                rect.quaternion.copy(this._rectLocalQuat);
+            }
+        }
+
+        if (this._otherRestWorld.length === 0) return;
+        const recede = this._recede.z;
+        const activeIndex = plane ? this.planes.indexOf(plane) : -1;
+        this.rectangles.forEach((other, i) => {
+            if (i === activeIndex) return;
+            const restWorld = this._otherRestWorld[i];
+            const otherParent = other.parent;
+            if (!restWorld || !otherParent) return;
+            otherParent.updateMatrixWorld(true);
+            this._worldPos.copy(restWorld).addScaledVector(this._lookDir, recede);
+            otherParent.worldToLocal(this._rectLocalPos.copy(this._worldPos));
+            other.position.copy(this._rectLocalPos);
+        });
+    }
+
     /** Photos ズーム中: 柱をステンシルではなく半透明ベタで描く */
     isPillarFading(): boolean {
         return this.pillarFading;
@@ -269,53 +323,71 @@ export class PhotosPillarPlanes {
         }, 0);
     }
 
-    /** 非選択写真と全柱ベタをその場でフェードアウト */
+    /** 非選択写真と、アクティブ以外の柱ベタを奥へ下げながらフェードアウト */
     hideOthers(active: THREE.Mesh) {
         this.killOthersTween();
         this.activePlane = active;
         this.pillarFading = true;
-        this.setRacFadeMaterials(true);
+        const activeIndex = this.planes.indexOf(active);
+        this.setRacFadeMaterials(true, activeIndex);
+        this.captureOtherRest();
 
         const others = this.planes.filter((p) => p !== active);
+        const otherMats = this.otherRacMaterials(activeIndex);
         this.othersTween = gsap.timeline({
             onComplete: () => {
                 others.forEach((p) => { p.visible = false; });
             },
         });
+        this.othersTween.to(this._recede, {
+            z: window.innerWidth <= 1023 ? RECEDE_DISTANCE_SP : RECEDE_DISTANCE_PC,
+            duration: ZOOM_IN_DURATION,
+            ease: 'power3.out',
+        }, 0);
         if (others.length > 0) {
             this.othersTween.to(
                 others.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity),
                 {
                     value: 0,
                     duration: ZOOM_IN_DURATION,
-                    ease: 'power2.in',
+                    ease: 'power3.out',
                 },
                 0,
             );
         }
-        this.othersTween.to(
-            this.racMaterials(),
-            {
-                opacity: 0,
-                duration: ZOOM_IN_DURATION,
-                ease: 'power2.in',
-            },
-            0,
-        );
+        if (otherMats.length > 0) {
+            this.othersTween.to(
+                otherMats,
+                {
+                    opacity: 0,
+                    duration: ZOOM_IN_DURATION,
+                    ease: 'power3.out',
+                },
+                0,
+            );
+        }
     }
 
-    /** 写真と柱ベタの不透明度を戻す */
+    /** 写真と柱ベタの不透明度・奥行きを戻す */
     restoreOthers() {
         this.killOthersTween();
         this.planes.forEach((p) => { p.visible = true; });
-        this.setRacFadeMaterials(true);
+        const activeIndex = this.activePlane ? this.planes.indexOf(this.activePlane) : -1;
+        this.setRacFadeMaterials(true, activeIndex);
 
+        const otherMats = this.otherRacMaterials(activeIndex);
         this.othersTween = gsap.timeline({
             onComplete: () => {
                 this.pillarFading = false;
                 this.setRacFadeMaterials(false);
+                this.restoreOtherRest();
             },
         });
+        this.othersTween.to(this._recede, {
+            z: 0,
+            duration: ZOOM_OUT_DURATION,
+            ease: 'power3.out',
+        }, 0);
         this.othersTween.to(
             this.planes.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity),
             {
@@ -325,26 +397,48 @@ export class PhotosPillarPlanes {
             },
             0,
         );
-        this.othersTween.to(
-            this.racMaterials(),
-            {
-                opacity: 1,
-                duration: ZOOM_OUT_DURATION,
-                ease: 'power2.out',
-            },
-            0,
-        );
+        if (otherMats.length > 0) {
+            this.othersTween.to(
+                otherMats,
+                {
+                    opacity: 1,
+                    duration: ZOOM_OUT_DURATION,
+                    ease: 'power2.out',
+                },
+                0,
+            );
+        }
     }
 
-    private racMaterials(): THREE.MeshBasicMaterial[] {
-        return this.rectangles.map((r) => r.material as THREE.MeshBasicMaterial);
+    private captureOtherRest() {
+        this.rectangles.forEach((r) => r.updateMatrixWorld(true));
+        this._otherRestWorld = this.rectangles.map((r) => r.getWorldPosition(new THREE.Vector3()));
+        this._otherRestLocal = this.rectangles.map((r) => r.position.clone());
     }
 
-    private setRacFadeMaterials(fading: boolean) {
-        this.racMaterials().forEach((m) => {
-            m.transparent = fading;
-            m.depthWrite = !fading;
-            if (!fading) m.opacity = 1;
+    private restoreOtherRest() {
+        this.rectangles.forEach((r, i) => {
+            const local = this._otherRestLocal[i];
+            if (local) r.position.copy(local);
+        });
+        this._otherRestWorld = [];
+        this._otherRestLocal = [];
+        this._recede.z = 0;
+    }
+
+    private otherRacMaterials(activeIndex: number): THREE.MeshBasicMaterial[] {
+        return this.rectangles
+            .filter((_, i) => i !== activeIndex)
+            .map((r) => r.material as THREE.MeshBasicMaterial);
+    }
+
+    private setRacFadeMaterials(fading: boolean, activeIndex = -1) {
+        this.rectangles.forEach((r, i) => {
+            const m = r.material as THREE.MeshBasicMaterial;
+            const keepSolid = !fading || i === activeIndex;
+            m.transparent = !keepSolid;
+            m.depthWrite = keepSolid;
+            if (keepSolid) m.opacity = 1;
         });
     }
 
@@ -369,6 +463,7 @@ export class PhotosPillarPlanes {
 
         this.activePlane = null;
         this.pillarFading = false;
+        this.restoreOtherRest();
         this.setRacFadeMaterials(false);
         this.planes.forEach((p) => {
             p.visible = true;
@@ -392,6 +487,7 @@ export class PhotosPillarPlanes {
 
         this.activePlane = null;
         this.pillarFading = false;
+        this.restoreOtherRest();
         this.setRacFadeMaterials(false);
         this.planes.forEach((p) => p.scale.set(1, 1, 1));
 

@@ -211,13 +211,14 @@ export class WebGLSceneController {
             onTick: (time) => {
                 this.theatre.tick(time);
                 this.playgroundBars.applyOverrides();
+                this.photosPillarPlanes.applyActiveRectOverride();
+                this.photosPillarPlanes.updateTransforms();
                 this.updatePlaygroundBarUv();
             },
             onFrameStart: () => {
                 if (this.isDebug) this.debugPanel?.stats.begin();
             },
             onFrameEnd: () => {
-                this.photosPillarPlanes.updateTransforms();
                 if (this.isDebug) this.debugPanel?.stats.end();
             },
         });
