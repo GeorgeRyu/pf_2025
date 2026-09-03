@@ -32,17 +32,6 @@ const navItems = [
 	}
 ];
 
-const photoTitles = [
-	"Repeat, circle. What was the artist thinking while making this?",
-	"Sleep after play",
-	"Favorite time of day",
-	"Light and shadow in the forest",
-	"Horizontal, wife, sea",
-	"What I see, what I think",
-	"Alive?",
-];
-const photoTitlesAttr = encodeURIComponent(JSON.stringify(photoTitles));
-
 const playgrounds = [
 	"001 - BlackElectricFan",
 	"002 - CirclingPhotos",
@@ -160,13 +149,6 @@ const playgrounds = [
 			</div>
 		</div>
 	</div>
-	<div
-		data-photo-titles={photoTitlesAttr}
-		class="fixed left-0 z-50 grid w-full grid-cols-4 gap-x-[8px] px-s-16-60 pointer-events-none top-[calc(50%+50vw*0.5628+8px)] transition-opacity lg:grid-cols-6 lg:gap-x-4 lg:px-s-20-60 lg:top-[50vh]"
-		:class="isPhotoActive ? 'opacity-100 duration-[600ms]' : 'opacity-0 duration-[540ms]'"
-	>
-		<p class="col-start-3 col-span-2 w-fit max-w-full bg-accent text-base px-[0.4em] lg:col-start-6 lg:col-span-1" x-text="photoActiveTitle"></p>
-	</div>
 	{ /* MODAL CONTAINER */ }
 	<div data-name="modal-container" class="hidden fixed top-0 left-0 w-full h-full z-[9999] lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*4+3rem+var(--s-20-60))]">
 		<div data-name="btn-close" class="absolute left-0 top-0 h-more-120 w-more-24 text-more-12 bg-accent z-30 flex flex-col gap-y-3 items-center justify-center lg:hidden">
@@ -213,8 +195,8 @@ const playgrounds = [
 							</ul>
 						</div>
 						<div class="grid grid-cols-1 gap-y-[1em]">
-							<p set:text={project.description}></p>
-							<p set:text={project.descriptionEn}></p>
+							<p set:html={project.description}></p>
+							<p set:html={project.descriptionEn}></p>
 						</div>
 					</div>
 				</header>

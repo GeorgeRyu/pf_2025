@@ -12,10 +12,9 @@ type AlpineRuntime = {
     evaluate(el: HTMLElement, expression: string): unknown;
 };
 
-function setPFAppPhoto(active: boolean, title = '') {
+function setPFAppPhoto(active: boolean) {
     const alpine = (window as Window & { Alpine?: AlpineRuntime }).Alpine;
     if (!alpine) return;
-    alpine.evaluate(document.body, `photoActiveTitle = ${JSON.stringify(title)}`);
     alpine.evaluate(document.body, `isPhotoActive = ${active}`);
 }
 
@@ -25,7 +24,6 @@ function setPFAppPhoto(active: boolean, title = '') {
  */
 export class PhotosInteractionController {
     private planes: THREE.Mesh[] = [];
-    private titles: string[] = [];
     private isZoomed = false;
     private zoomedPlane: THREE.Mesh | null = null;
 
@@ -36,7 +34,6 @@ export class PhotosInteractionController {
 
     attach(planes: THREE.Mesh[]) {
         this.planes = planes;
-        this.titles = this.readTitles();
         window.addEventListener('click', this.onClick);
         window.addEventListener('keydown', this.onKeyDown);
         window.addEventListener('pointermove', this.onPointerMove);
@@ -97,7 +94,7 @@ export class PhotosInteractionController {
 
         const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
         lenis?.stop();
-        this.setPhotoActive(true, plane);
+        setPFAppPhoto(true);
 
         const photos = this.deps.getPhotosPillarPlanes();
         photos?.toOriginal(plane);
@@ -111,32 +108,11 @@ export class PhotosInteractionController {
         this.zoomedPlane = null;
         const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
         lenis?.start();
-        this.setPhotoActive(false, null);
+        setPFAppPhoto(false);
 
         const photos = this.deps.getPhotosPillarPlanes();
         photos?.toDuotone(zoomedPlane);
         photos?.restoreForward();
         photos?.restoreOthers();
-    }
-
-    private readTitles(): string[] {
-        const raw = document.querySelector('[data-photo-titles]')?.getAttribute('data-photo-titles');
-        if (!raw) return [];
-        try {
-            return JSON.parse(decodeURIComponent(raw)) as string[];
-        } catch {
-            return [];
-        }
-    }
-
-    private setPhotoActive(active: boolean, plane: THREE.Mesh | null) {
-        if (active && plane) {
-            const index = typeof plane.userData.photoIndex === 'number'
-                ? plane.userData.photoIndex
-                : this.planes.indexOf(plane);
-            setPFAppPhoto(true, this.titles[index] ?? '');
-        } else {
-            setPFAppPhoto(false);
-        }
     }
 }

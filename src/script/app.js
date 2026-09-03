@@ -13,7 +13,6 @@ window.PFApp = function() {
         isColorThemeMenuOpen: false,
         isMenuOpen: false,
         isPhotoActive: false,
-        photoActiveTitle: '',
 
         // 初期化時にlenisの参照を取得
         initLenis() {
