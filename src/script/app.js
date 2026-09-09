@@ -56,6 +56,7 @@ window.PFApp = function() {
                         duration: 3.5,
                         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // easeOutExpo
                         offset: 0,
+                        lock: true, // モバイルでタッチ入力による中断を防ぐ（途中停止で文字が消える対策）
                     }
                 );
                 window.app?.scrollSnap?.suppress(3.5);
