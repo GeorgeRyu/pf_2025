@@ -5,7 +5,8 @@ const THEMES = [
   { name: "yellow", base: "#F5CF39", accent: "#1d1e0c" },
   { name: "blue", base: "#4E9FF6", accent: "#48197b" },
   { name: "green", base: "#114b37", accent: "#CE5316" },
-  { name: "black", base: "#1B1A1A", accent: "#B22123" },
+  // { name: "black", base: "#1B1A1A", accent: "#B22123" },
+  { name: "black", base: "#1B1A1A", accent: "#942224" },
 ];
 
 const THEME_CHANGE_EVENT = "pf:color-theme-change";
