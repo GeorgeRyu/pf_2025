@@ -7,19 +7,31 @@ import SoundBtn from './SoundBtn.astro';
     :class="isPhotoActive ? 'opacity-0 pointer-events-none duration-[600ms]' : 'duration-[540ms]'"
     :inert="isPhotoActive"
 >
-    <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
-
     <div class="grid grid-cols-1 gap-y-4 lg:col-span-1 lg:col-start-5">
-        <div class="grid grid-cols-1 gap-y-1 lg:col-span-2 lg:col-start-5 lg:grid-cols-2 lg:gap-x-4">
-            <div class="flex items-center gap-x-6">
-                <a loading-name='text' href="http://" target="_blank" rel="noopener noreferrer">Instagram</a>
-                <a loading-name='text' href="http://" target="_blank" rel="noopener noreferrer">X</a>
-                <a loading-name='text' href="mailto:r.takahasii@gmail.com">mail</a>
+        <div class="grid grid-cols-1 gap-y-1 lg:col-span-2 lg:col-start-1 lg:grid-cols-2 lg:gap-x-4">
+            <div class="wrap-content hidden items-center gap-x-more-20 lg:flex">
+                <button loading-name='text'>contact</button>
+                <div class="links-area hidden items-center gap-x-6">
+                    <a href="mailto:r.takahasii@gmail.com" class="link-inside">mail</a>
+                    <a href="http://" target="_blank" rel="noopener noreferrer" class="link-inside">ig</a>
+                    <a href="http://" target="_blank" rel="noopener noreferrer" class="link-inside">x</a>
+                </div>
             </div>
         </div>
-        <div loading-name='text' id="scroll" class="lg:col-start-5">{ `{ scroll }` }</div>
+        <div loading-name='text' id="scroll" class="lg:col-start-1">scroll</div>
     </div>
-</footer>
-<style>
 
+    <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
+</footer>
+
+<style lang="scss">
+    .wrap-content {
+        @media (min-width: 1024px) {
+            &:hover {
+                .links-area {
+                    display: flex;
+                }
+            }
+        }
+    }
 </style>
