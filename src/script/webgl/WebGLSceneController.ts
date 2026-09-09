@@ -42,8 +42,13 @@ export class WebGLSceneController {
     private aboutImageConfig: AboutImageConfig = { ...DEFAULT_ABOUT_IMAGE_CONFIG };
     private isPC = false;
     private mouseUvTarget = new THREE.Vector2(0.5, 0.5);
+    private lensActiveTarget = 0;
+    private aboutLensLastMoveAt = 0;
+    private readonly aboutLensIdleMs = 1000;
     private readonly aboutRaycaster = new THREE.Raycaster();
-    private readonly aboutPointerNdc = new THREE.Vector2();
+    private readonly aboutPointerNdc = new THREE.Vector2(2, 2);
+    private aboutPointerDownX = 0;
+    private aboutPointerDownY = 0;
     // デフォルトカメラ位置（PC/SP で bindWebGLSceneLayout が上書きする）
     private defaultCameraZ = 5;
     private defaultCameraX = 0;
@@ -205,6 +210,7 @@ export class WebGLSceneController {
             isPC: () => this.isPC,
             getActiveSection: () => this.scroll.getActiveSection(),
             getMouseUvTarget: () => this.mouseUvTarget,
+            getLensActiveTarget: () => this.lensActiveTarget,
             getPhotoPlanesGroup: () => this.photosPillarPlanes.group,
             getPhotosPillarFading: () => this.photosPillarPlanes.isPillarFading(),
             getPlaygroundFocusedIndex: () => this.playgroundBars.getFocusedIndex(),
@@ -214,6 +220,7 @@ export class WebGLSceneController {
                 this.photosPillarPlanes.applyActiveRectOverride();
                 this.photosPillarPlanes.updateTransforms();
                 this.updatePlaygroundBarUv();
+                this.updateAboutLens();
             },
             onFrameStart: () => {
                 if (this.isDebug) this.debugPanel?.stats.begin();
@@ -243,7 +250,6 @@ export class WebGLSceneController {
             groupRectangles: this.groupRectangles,
             worksPlate: this.worksPlate,
             plateShaderMaterial: this.plateShaderMaterial,
-            aboutConfig: this.aboutImageConfig,
             setIsPC: (v) => {
                 this.isPC = v;
                 // PC/SP それぞれのデフォルト Z を記録
@@ -353,7 +359,7 @@ export class WebGLSceneController {
     public setAboutImageConfig(partial: Partial<AboutImageConfig>) {
         Object.assign(this.aboutImageConfig, partial);
         if (!this.plateShaderMaterial) return;
-        applyAboutImageUniforms(this.plateShaderMaterial, this.aboutImageConfig, this.isPC);
+        applyAboutImageUniforms(this.plateShaderMaterial, this.aboutImageConfig);
     }
 
     private applyTheme() {
@@ -377,21 +383,73 @@ export class WebGLSceneController {
         window.addEventListener('pf:color-theme-change', () => this.applyTheme());
     }
 
+    private updateAboutLens() {
+        if (this.scroll.getActiveSection() !== 'about') {
+            this.lensActiveTarget = 0;
+            return;
+        }
+
+        if (
+            this.lensActiveTarget > 0 &&
+            performance.now() - this.aboutLensLastMoveAt >= this.aboutLensIdleMs
+        ) {
+            this.lensActiveTarget = 0;
+        }
+    }
+
     private attachAboutPointer() {
+        window.addEventListener('pointerdown', this.onAboutPointerDown);
+        window.addEventListener('pointerup', this.onAboutPointerUp);
         window.addEventListener('pointermove', this.onAboutPointerMove);
     }
 
-    private onAboutPointerMove = (e: PointerEvent) => {
-        if (!this.isPC || this.scroll.getActiveSection() !== 'about') return;
-        if (!this.worksPlate) return;
+    private onAboutPointerDown = (e: PointerEvent) => {
+        this.aboutPointerDownX = e.clientX;
+        this.aboutPointerDownY = e.clientY;
+    };
 
-        this.aboutPointerNdc.x = (e.clientX / window.innerWidth) * 2 - 1;
-        this.aboutPointerNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    private onAboutPointerUp = (e: PointerEvent) => {
+        if (this.isPC || this.scroll.getActiveSection() !== 'about') return;
+
+        const dx = e.clientX - this.aboutPointerDownX;
+        const dy = e.clientY - this.aboutPointerDownY;
+        if (Math.hypot(dx, dy) > 12) return;
+
+        this.setAboutPointerNdc(e.clientX, e.clientY);
+        this.applyAboutLensFromRaycast();
+    };
+
+    private onAboutPointerMove = (e: PointerEvent) => {
+        this.setAboutPointerNdc(e.clientX, e.clientY);
+        if (this.isPC) this.updateAboutPointerRaycast();
+    };
+
+    private setAboutPointerNdc(clientX: number, clientY: number) {
+        this.aboutPointerNdc.x = (clientX / window.innerWidth) * 2 - 1;
+        this.aboutPointerNdc.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
+    private updateAboutPointerRaycast() {
+        if (!this.isPC || this.scroll.getActiveSection() !== 'about') return;
+        this.applyAboutLensFromRaycast();
+    }
+
+    private applyAboutLensFromRaycast() {
+        if (!this.worksPlate || this.scroll.getActiveSection() !== 'about') return;
 
         this.aboutRaycaster.setFromCamera(this.aboutPointerNdc, this.camera);
         const hits = this.aboutRaycaster.intersectObject(this.worksPlate, false);
         if (hits.length > 0 && hits[0].uv) {
-            this.mouseUvTarget.copy(hits[0].uv);
+            const uv = hits[0].uv;
+            const appearing = this.lensActiveTarget < 0.5;
+            if (appearing && this.plateShaderMaterial) {
+                (this.plateShaderMaterial.uniforms.imageMouseUv.value as THREE.Vector2).copy(uv);
+            }
+            this.mouseUvTarget.copy(uv);
+            this.lensActiveTarget = 1;
+            this.aboutLensLastMoveAt = performance.now();
+        } else {
+            this.lensActiveTarget = 0;
         }
     }
 }

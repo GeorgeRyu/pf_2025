@@ -9,6 +9,7 @@ export type WebGLRenderLoopDeps = {
     isPC: () => boolean;
     getActiveSection: () => ActiveSection;
     getMouseUvTarget: () => THREE.Vector2;
+    getLensActiveTarget: () => number;
     getPhotoPlanesGroup?: () => THREE.Group | null;
     getPhotosPillarFading?: () => boolean;
     /** Playground ホバー中のフォーカスバー index。null なら通常描画 */
@@ -80,9 +81,17 @@ export class WebGLSceneContext {
 
             plateShaderMaterial.uniforms.time.value += dt;
 
-            if (deps.isPC() && deps.getActiveSection() === 'about') {
+            const ease = Number(plateShaderMaterial.uniforms.imagePointerEase?.value ?? 0.1);
+            const lensActive = plateShaderMaterial.uniforms.imageLensActive;
+            if (lensActive) {
+                const activeTarget =
+                    deps.getActiveSection() === 'about' ? deps.getLensActiveTarget() : 0;
+                lensActive.value = THREE.MathUtils.lerp(Number(lensActive.value), activeTarget, ease);
+            }
+
+            if (deps.getActiveSection() === 'about') {
                 const u = plateShaderMaterial.uniforms.imageMouseUv.value as THREE.Vector2;
-                u.lerp(deps.getMouseUvTarget(), 0.18);
+                u.lerp(deps.getMouseUvTarget(), ease);
             }
         }
 

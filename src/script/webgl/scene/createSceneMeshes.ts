@@ -13,49 +13,8 @@ export type WebGLSceneMeshes = {
     plateShaderMaterial: THREE.ShaderMaterial;
 };
 
-const CHAR_SET = '0123456789#%&*+=ABCDEFGHJKLMNPQR';
-const ATLAS_COLS = 8;
-const ATLAS_ROWS = 4;
-const CELL_PX = 64;
-const PADDING_RATIO = 0.14;
-
 const RECTANGLE_COUNT = 7;
 const BOX_SIZE = { x: 2, y: 35, z: 1.1256 };
-
-function createCharacterAtlas(): { texture: THREE.CanvasTexture; cols: number; rows: number } {
-    const canvas = document.createElement('canvas');
-    canvas.width = ATLAS_COLS * CELL_PX;
-    canvas.height = ATLAS_ROWS * CELL_PX;
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = `bold ${Math.round(CELL_PX * (1 - PADDING_RATIO * 2))}px ui-monospace, Menlo, Consolas, monospace`;
-
-    const total = ATLAS_COLS * ATLAS_ROWS;
-    for (let i = 0; i < total; i++) {
-        const char = CHAR_SET[i % CHAR_SET.length];
-        const col = i % ATLAS_COLS;
-        const row = Math.floor(i / ATLAS_COLS);
-        const x = col * CELL_PX + CELL_PX / 2;
-        const y = row * CELL_PX + CELL_PX / 2;
-        ctx.fillText(char, x, y);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.generateMipmaps = false;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.needsUpdate = true;
-
-    return { texture, cols: ATLAS_COLS, rows: ATLAS_ROWS };
-}
 
 function createRectangleMask(): {
     rectangles: THREE.Mesh[];
@@ -90,7 +49,6 @@ function createWorksPlateMesh(aboutConfig: AboutImageConfig): {
     material: THREE.ShaderMaterial;
 } {
     const geometry = new THREE.PlaneGeometry(PLATE_SIZE, PLATE_SIZE);
-    const charAtlas = createCharacterAtlas();
 
     const material = new THREE.ShaderMaterial({
         uniforms: {
@@ -108,18 +66,24 @@ function createWorksPlateMesh(aboutConfig: AboutImageConfig): {
             uvScaleB: { value: new THREE.Vector2(1, 1) },
             uvOffsetB: { value: new THREE.Vector2(0, 0) },
             imageMode: { value: 0.0 },
-            imageBaseReveal: { value: aboutConfig.baseReveal },
-            imageNoiseScale: { value: aboutConfig.noiseScale },
-            imageNoiseSpeed: { value: aboutConfig.noiseSpeed },
             imageMouseUv: { value: new THREE.Vector2(0.5, 0.5) },
-            imageMouseStrength: { value: 0.0 },
-            imageMouseRadius: { value: aboutConfig.mouseRadius },
-            imageMouseSoftness: { value: aboutConfig.mouseSoftness },
+            imageLensRadius: { value: aboutConfig.lensRadius },
+            imageLensSoftness: { value: aboutConfig.lensSoftness },
+            imageLensDistortion: { value: aboutConfig.lensDistortion },
+            imageRgbShiftR: { value: aboutConfig.rgbShiftR },
+            imageRgbShiftG: { value: aboutConfig.rgbShiftG },
+            imageRgbShiftB: { value: aboutConfig.rgbShiftB },
+            imageWaveFrequency: { value: aboutConfig.waveFrequency },
+            imageWaveStrength: { value: aboutConfig.waveStrength },
+            imageWaveSpeed: { value: aboutConfig.waveSpeed },
+            imageRandomFrequency: { value: aboutConfig.randomFrequency },
+            imageRandomStrength: { value: aboutConfig.randomStrength },
+            imageRandomSpeed: { value: aboutConfig.randomSpeed },
+            imagePointerEase: { value: aboutConfig.pointerEase },
+            imageDuotoneBalance: { value: aboutConfig.duotoneBalance },
+            imageLensActive: { value: 0.0 },
             duotoneLight: { value: new THREE.Color(1, 1, 1) },
             duotoneDark: { value: new THREE.Color(0, 0, 0) },
-            charAtlas: { value: charAtlas.texture },
-            charAtlasGrid: { value: new THREE.Vector2(charAtlas.cols, charAtlas.rows) },
-            charCellSize: { value: aboutConfig.charCellSize },
             staticNoiseMode: { value: 0.0 },
             barUvRemap: { value: 0.0 },
             barUvMin: { value: new THREE.Vector2(0, 0) },
@@ -141,16 +105,22 @@ function createWorksPlateMesh(aboutConfig: AboutImageConfig): {
 export function applyAboutImageUniforms(
     material: THREE.ShaderMaterial,
     config: AboutImageConfig,
-    isPC: boolean,
 ) {
     const u = material.uniforms;
-    u.imageBaseReveal.value = config.baseReveal;
-    u.imageNoiseScale.value = config.noiseScale;
-    u.imageNoiseSpeed.value = config.noiseSpeed;
-    u.imageMouseRadius.value = config.mouseRadius;
-    u.imageMouseSoftness.value = config.mouseSoftness;
-    u.imageMouseStrength.value = isPC ? config.mousePcStrength : 0.0;
-    u.charCellSize.value = config.charCellSize;
+    u.imageLensRadius.value = config.lensRadius;
+    u.imageLensSoftness.value = config.lensSoftness;
+    u.imageLensDistortion.value = config.lensDistortion;
+    u.imageRgbShiftR.value = config.rgbShiftR;
+    u.imageRgbShiftG.value = config.rgbShiftG;
+    u.imageRgbShiftB.value = config.rgbShiftB;
+    u.imageWaveFrequency.value = config.waveFrequency;
+    u.imageWaveStrength.value = config.waveStrength;
+    u.imageWaveSpeed.value = config.waveSpeed;
+    u.imageRandomFrequency.value = config.randomFrequency;
+    u.imageRandomStrength.value = config.randomStrength;
+    u.imageRandomSpeed.value = config.randomSpeed;
+    u.imagePointerEase.value = config.pointerEase;
+    u.imageDuotoneBalance.value = config.duotoneBalance;
 }
 
 /** 柱マスク + worksPlate（シェーダー付き）をまとめて構築する。 */
