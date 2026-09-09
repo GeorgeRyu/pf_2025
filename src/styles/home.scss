@@ -1,4 +1,18 @@
 body {
+    .font-jp {
+        font-family: var(--font-family-jp);
+        font-weight: 400;
+        font-style: normal;
+        font-size: 10px;
+        font-feature-settings: "palt";
+        font-variant-alternates: proportional-width;
+        letter-spacing: 0.02em;
+
+        @media (min-width: 1024px) {
+            font-size: 12px;
+        }
+    }
+
     .active-nav-line {
         animation: active-nav-line 1s infinite;
         background-color: var(--c-accent);

@@ -14,7 +14,8 @@
     --color-base: var(--c-base);
     --color-accent: var(--c-accent);
 
-    --font-family-abc: "ABC Arizona Flare Variable Unlicensed Trial", sans-serif;
+    --font-family-jp: var(--font-family-jp);
+    --font-family-en: var(--font-family-en);
 
     --spacing-s-16-60: var(--s-16-60);
     --spacing-s-20-60: var(--s-20-60);

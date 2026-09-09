@@ -76,6 +76,7 @@ export class ScrollAnimations {
         const eachAreaTitles = ['Works', 'About', 'Photos', 'Playground', 'THX'];
 
         nameArea.textContent = eachAreaTitles[0];
+        this.setActivePcNav('Works');
 
         eachArea.forEach((area, index) => {
             const targetArea = document.querySelector(`[data-name="${area}"]`);
@@ -92,9 +93,12 @@ export class ScrollAnimations {
             let leaveBackFunc = () => {};
             let markers = false;
 
+            const title = eachAreaTitles[index];
+
             if (index === 0) {
                 enterFunc = () => tlHideTxt.restart();
                 enterBackFunc = () => {
+                    this.setActivePcNav('Works');
                     tlShowTxt.restart();
                     mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                 };
@@ -105,18 +109,27 @@ export class ScrollAnimations {
 
                 if (index === 4) {
                     enterFunc = () => {
+                        this.setActivePcNav('');
                         tlShowTxt.restart();
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
-                    enterBackFunc = () => tlShowTxt.reverse();
-                    leaveBackFunc = () => tlHideTxt.restart();
+                    enterBackFunc = () => {
+                        this.setActivePcNav('');
+                        tlShowTxt.reverse();
+                    };
+                    leaveBackFunc = () => {
+                        this.setActivePcNav('Playground');
+                        tlHideTxt.restart();
+                    };
                 } else {
                     enterFunc = () => {
+                        this.setActivePcNav(title);
                         tlShowTxt.restart();
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
                     leaveFunc = () => tlHideTxt.restart();
                     enterBackFunc = () => {
+                        this.setActivePcNav(title);
                         tlShowTxt.restart();
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
@@ -226,6 +239,12 @@ export class ScrollAnimations {
             });
 
             this.scrollTriggers.push(trigger);
+        });
+    }
+
+    setActivePcNav(title) {
+        document.querySelectorAll('[data-pc-nav]').forEach((el) => {
+            el.classList.toggle('is-active', el.dataset.pcNav === title);
         });
     }
 

@@ -1,4 +1,8 @@
 :root {
+
+    --font-family-jp: "BIZ UDPMincho", serif;
+    --font-family-en: "JetBrains Mono", monospace;
+    
     /* --c-black-01: #1A1A1B; */
     --c-black-01: #000000;
     --c-black-02: #363636;
@@ -11,7 +15,8 @@
     --c-white-03: #E5E5E1;
     --c-blue-01: #35436A;
     --c-blue-02: #1D3765;
-    --c-green-01: #477F33;
+    /* --c-green-01: #477F33; */
+    --c-green-01: #114b37;
     --c-brawn-01: #A0472F;
 
     --c-base: #FFFFFF;
