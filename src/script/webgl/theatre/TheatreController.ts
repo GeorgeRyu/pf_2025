@@ -16,6 +16,7 @@ export class TheatreController {
     private theatreSheet!: ISheet;
     private sequenceLength = 20;
     private rafDriver!: IRafDriver;
+    private isPC = window.innerWidth > 1023;
 
     getSheet(): ISheet {
         return this.theatreSheet;
@@ -140,7 +141,9 @@ export class TheatreController {
 
         // Phase 2: loadingFirstPosition → loadingEndPosition へ tween
         const phase2Duration = 4;
-        const nearCompleteThreshold = (phase2Duration - 0.8) / phase2Duration;
+        const delay = this.isPC ? 3.2 : 3.0;
+
+        const nearCompleteThreshold = (phase2Duration - delay) / phase2Duration;
         return new Promise<void>((resolve) => {
             const positionObj = { value: loadingFirstPosition };
             let nearCompleteTriggered = false;

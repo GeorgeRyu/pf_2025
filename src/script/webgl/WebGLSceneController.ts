@@ -294,14 +294,35 @@ export class WebGLSceneController {
         // ローディングアニメーション（Phase1: 2本進捗連動 / Phase2: tween）
         await this.theatre.playLoadingAnimation(getProgress, () => {
             const fadeInItems = gsap.utils.toArray('[loading-name="text"]');
+            fadeInItems.forEach((item , index) => {
+                const fromX = this.isPC ? index + 1 * 100 : index + 1 * 40;
+                const fromY = this.isPC ? index + 1 * 80 : index + 1 * 80;
+                
+                gsap.set(item as HTMLElement, {
+                    x: fromX,
+                    y: fromY,
+                    rotate: 30,
+                    transformOrigin: 'center bottom',
+                });
+            });
 
             if (fadeInItems.length > 0) {
                 gsap.to(fadeInItems, {
-                    duration: 1,
-                    opacity: 1,
+                    duration: 2,
+                    x: 0,
+                    y: 0,
+                    rotate: 0,
+                    ease: 'power3.out',
                     stagger: {
-                        amount: 1,
-                        from: 'random',
+                        amount: this.isPC ? 0.5 : 0.4,
+                        // from: 'random',
+                    }
+                });
+                gsap.to(fadeInItems, {
+                    opacity: 1,
+                    duration: 3.0,
+                    stagger: {
+                        amount: 0.4,
                     }
                 });
             }
