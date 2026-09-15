@@ -1,5 +1,4 @@
 ---
-import { Image } from 'astro:assets';
 import { getProjects } from '../lib/projects.js';
 import WebGLScene from './webgl/WebGLScene.astro';
 
@@ -46,7 +45,7 @@ const playgrounds = [
 
 <main class="relative h-[1400vh] bg-base">
     <WebGLScene
-        movies={projects.map(p => p.moviePc)}
+        movies={projects.map(p => p.movieMain)}
         playgroundMovies={[
             '/movies/playground/black-electric-fan.mp4',
             '/movies/playground/circle-pictures.mp4',
@@ -68,8 +67,8 @@ const playgrounds = [
 		:inert="isPhotoActive"
 	>
 		<div loading-name='text' class="relative col-start-3 justify-self-start lg:hidden">
-			<div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div>
-			<div class=" leading-snug bg-accent/20" data-name="name-area"></div>
+			<!-- <div class="active-nav-line absolute top-0 left-full w-[2px] h-full"></div> -->
+			<div class="link-inside is-active leading-snug bg-accent/20" data-name="name-area"></div>
 		</div>
 
 		<div class="hidden lg:block col-start-5">
@@ -175,9 +174,9 @@ const playgrounds = [
 
 			<div class="lg:mt-more-20">
 				<header>
-					{ project.moviePc && (
-						<div class="col-span-2 bg-gray01">
-						<video src={project.moviePc} autoplay loop muted playsinline class="w-full h-auto"></video>
+					{ project.movieMain && (
+						<div class="aspect-video bg-accent">
+							<video data-src={project.movieMain} muted loop playsinline preload="none" class="w-full h-auto"></video>
 						</div>
 					)}
 
@@ -189,65 +188,60 @@ const playgrounds = [
 									<p class="opacity-40">Role</p>
 									<p>{project.role}</p>
 								</li>
-								<li class="flex items-center gap-x-3">
-									<p class="opacity-40">Date</p>
-									<p>{project.date}</p>
-								</li>
-								<li>
-									<a data-name="link-view-project" class="underline" href={project.url} target="_blank" rel="noopener noreferrer">View Project</a>
-								</li>
+								{ project.date && (
+									<li class="flex items-center gap-x-3">
+										<p class="opacity-40">Date</p>
+										<p>{project.date}</p>
+									</li>
+								)}
+								{ project.siteClosed && (
+									<li class="flex items-center gap-x-3">
+										<p class="opacity-40">Site</p>
+										<p>Site closed</p>
+									</li>
+								)}
+								{ !project.siteClosed && project.links?.length > 0 && (
+									<li class="flex items-center gap-x-3">
+										<p class="opacity-40">Link</p>
+										<p class="flex flex-wrap gap-x-3">
+											{project.links.map((link) => (
+												<a data-name="link-view-project" class="underline" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
+											))}
+										</p>
+									</li>
+								)}
 							</ul>
 						</div>
 						<div class="grid grid-cols-1 gap-y-[1em]">
-							<p set:html={project.description}></p>
-							<p set:html={project.descriptionEn}></p>
+							<p class="" set:html={project.descriptionEn}></p>
+							<p class="font-jp" set:html={project.description}></p>
 						</div>
 					</div>
 				</header>
 
-				<div class="grid grid-cols-2 gap-x-[8px] gap-y-[1em] mt-16 lg:mt-[6em] lg:gap-y-[2em] lg:gap-x-[1em]">
-					{ project.hero && (
-						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
-							<Image src={project.hero} alt={project.title} width={1600} height={900} class="w-full h-full object-cover"></Image>
+				<div class="grid grid-cols-1 gap-y-[1em] mt-16 lg:mt-[6em] lg:gap-y-[2em]">
+					{project.blocks.map((block) => (
+						<div class="bg-gray01 overflow-hidden">
+							{ block.type === 'image' ? (
+								<img src={block.src} alt="" class="w-full h-auto" />
+							) : (
+								<video data-src={block.src} muted loop playsinline preload="none" class="w-full h-auto"></video>
+							)}
+						</div>
+					))}
+					{ project.spBlocks?.length > 0 && (
+						<div class="grid grid-cols-2 gap-x-[8px] lg:gap-x-[1em]">
+							{project.spBlocks.map((block) => (
+								<div class="bg-gray01 overflow-hidden">
+									{ block.type === 'image' ? (
+										<img src={block.src} alt="" class="w-full h-auto" />
+									) : (
+										<video data-src={block.src} muted loop playsinline preload="none" class="w-full h-auto"></video>
+									)}
+								</div>
+							))}
 						</div>
 					)}
-					{ project.movieMotion01 && (
-						<div class="col-span-1 bg-gray01 aspect-square overflow-hidden">
-							<video src={project.movieMotion01} autoplay loop muted playsinline class="w-full h-full object-cover"></video>
-						</div>
-					)}
-					{ project.movieMotion02 && (
-						<div class="col-span-1 bg-gray01 aspect-square overflow-hidden">
-							<video src={project.movieMotion02} autoplay loop muted playsinline class="w-full h-full object-cover"></video>
-						</div>
-					)}
-					{ project.imagePc01 && (
-						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
-							<Image src={project.imagePc01} alt='pc design' width={1600} height={900} class="w-full h-full object-cover"></Image>
-						</div>
-					)}
-					{ project.imagePc02 && (
-						<div class="col-span-2 bg-gray01 aspect-video overflow-hidden">
-							<Image src={project.imagePc02} alt='pc design' width={1600} height={900} class="w-full h-full object-cover"></Image>
-						</div>
-					)}
-					<div class="col-span-2 grid grid-cols-3 gap-x-[8px] lg:gap-x-[1em]">
-						{ project.imageSp01 && (
-							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
-								<Image src={project.imageSp01} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
-							</div>
-						)}
-						{ project.imageSp02 && (
-							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
-								<Image src={project.imageSp02} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
-							</div>
-						)}
-						{ project.imageSp03 && (
-							<div class="bg-gray01 aspect-[9/16] overflow-hidden">
-								<Image src={project.imageSp03} alt='sp design' width={600} height={1067} class="w-full h-full object-cover"></Image>
-							</div>
-						)}
-					</div>
 				</div>
 
 				<div class="prev-next flex justify-between items-center h-more-200 lg:mt-more-100">
@@ -303,10 +297,10 @@ const playgrounds = [
 		&::before {
 			position: absolute;
 			top: 0;
-			left: -1em;
+			left: 0;
 			content: '';
 			display: block;
-			width: calc(100% + 1em);
+			width: 100%;
 			height: 100%;
 			background-color: var(--c-accent);
 			opacity: 0;
@@ -348,6 +342,5 @@ const playgrounds = [
 
 	#modal-container {
 		// display: none;
-
 	}
 </style>

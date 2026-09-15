@@ -14,6 +14,7 @@ uniform float time;
 
 // ----- 画像モード（About: 外側デュオトーン揺れ + 円形カラーレンズ） -----
 uniform float imageMode;
+uniform float imageFromPrev; // 0=ベタから, 1=textureA（直前の動画など）から
 uniform vec2  imageMouseUv;
 uniform float imageLensRadius;
 uniform float imageLensSoftness;
@@ -198,9 +199,14 @@ void main() {
 
     if (imageMode > 0.5) {
         float appear = smoothstep(0.0, 1.0, progress);
-        vec3 base = toSRGB(baseColor);
         vec3 photo = applyAboutLens(textureB, vUv, uvScaleB, uvOffsetB);
-        gl_FragColor = vec4(mix(base, photo, appear), 1.0);
+        vec3 fromColor = toSRGB(baseColor);
+        if (imageFromPrev > 0.5) {
+            vec2 localUv = toBarLocalUv(vUv);
+            vec2 uvA = localUv * uvScaleA + uvOffsetA;
+            fromColor = texture2D(textureA, uvA).rgb;
+        }
+        gl_FragColor = vec4(mix(fromColor, photo, appear), 1.0);
         return;
     }
 

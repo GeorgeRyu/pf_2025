@@ -14,6 +14,8 @@ export type WebGLScrollControllerDeps = {
     onPhotosEnter?: () => void;
     onPhotosLeave?: () => void;
     onPlaygroundLeave?: () => void;
+    onAboutEnter?: () => void;
+    onAboutLeaveBack?: () => void;
 };
 
 /**
@@ -103,7 +105,7 @@ export class WebGLScrollController {
             onEnter: () => this.enterAboutZone(),
             onEnterBack: () => this.enterAboutZone(),
             onLeave: () => this.leaveAboutZone(),
-            onLeaveBack: () => this.leaveAboutZone(),
+            onLeaveBack: () => this.leaveAboutZone({ leaveBack: true }),
         });
         this.scrollTriggers.push(aboutTrigger);
 
@@ -138,6 +140,7 @@ export class WebGLScrollController {
 
     private enterAboutZone() {
         this.activeSection = 'about';
+        this.deps.onAboutEnter?.();
         if (this.aboutVisible) return;
         this.aboutVisible = true;
         this.deps.plateContent.show(
@@ -146,11 +149,12 @@ export class WebGLScrollController {
         );
     }
 
-    private leaveAboutZone() {
+    private leaveAboutZone(opts?: { leaveBack?: boolean }) {
         this.activeSection = 'works';
         if (!this.aboutVisible) return;
         this.aboutVisible = false;
         this.deps.plateContent.clear({ duration: 1.2 });
+        if (opts?.leaveBack) this.deps.onAboutLeaveBack?.();
     }
 
     private enterPhotosZoneFromForward() {

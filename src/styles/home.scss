@@ -6,10 +6,11 @@ body {
         font-size: 10px;
         font-feature-settings: "palt";
         font-variant-alternates: proportional-width;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.06em;
+        line-height: 1.5;
 
         @media (min-width: 1024px) {
-            font-size: 12px;
+            font-size: 13px;
         }
     }
 

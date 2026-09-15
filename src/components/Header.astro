@@ -76,22 +76,32 @@ import ColorThemeBtn from './ColorThemeBtn.astro';
 
 <nav id="menu" data-name="menu" :class="{ 'grid': isMenuOpen, 'hidden': !isMenuOpen }" class="menu hidden fixed left-0 bottom-0 w-full pb-s-20-60 pt-16 px-s-16-60 bg-accent text-base z-[999]">
     <div @click="isMenuOpen = !isMenuOpen" data-name="bg-menu" class="absolute bottom-0 left-0 w-full h-screen z-10"></div>
-    <div class="relative grid grid-cols-2 gap-y-20 z-20">
-        <div class="grid grid-cols-1 gap-y-3">
-            <div class="grid grid-cols-1">
+    <div class="relative grid grid-cols-2 gap-x-[8px] gap-y-20 z-20">
+        <div class="flex flex-col items-start justify-between">
+            <ColorThemeBtn classNameWrapper="relative z-20" />
+            <div class="">
+                <p>contact</p>
+                <div class="flex items-center gap-x-6 ml-5">
+                    <a href="mailto:r.takahasii@gmail.com">mail</a>
+                    <a href="https://www.instagram.com/r.takahasii/">ig</a>
+                    <a href="https://www.instagram.com/r.takahasii/">x</a>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 gap-y-6">
+            <div class="grid grid-cols-1 gap-y-2">
                 <div @click="anchorLink(1)">Works</div>
                 <div @click="anchorLink(2)">About</div>
             </div>  
-            <div class="grid grid-cols-1">
+            <div class="grid grid-cols-1 gap-y-2">
                 <p class="opacity-50">private projects</p>
                 <div @click="anchorLink(3)">Photos</div>
                 <div @click="anchorLink(4)">Playground</div>
             </div>
         </div>
-        <div class="flex flex-col items-start justify-between">
-            <ColorThemeBtn classNameWrapper="relative z-20" />
-            <div @click="isMenuOpen = !isMenuOpen" class="" data-name="btn-close">close</div>
-        </div>
+    </div>
+    <div class="grid grid-cols-2 gap-x-[8px] mt-[56px]">
+        <div @click="isMenuOpen = !isMenuOpen" class=" col-start-2" data-name="btn-close">close</div>
     </div>
 </nav>
 

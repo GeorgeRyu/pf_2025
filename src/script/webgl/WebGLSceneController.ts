@@ -10,6 +10,7 @@ import {
     WorksHoverController,
     PlaygroundHoverController,
 } from './interaction/SectionHoverControllers';
+import { WorksMobilePreviewController } from './interaction/WorksMobilePreviewController';
 import { PhotosInteractionController } from './interaction/PhotosInteractionController';
 import { WebGLDebugPanel } from './debug/WebGLDebugPanel';
 import { buildWebGLSceneMeshes, applyAboutImageUniforms } from './scene/createSceneMeshes';
@@ -58,6 +59,7 @@ export class WebGLSceneController {
     private photosInteraction!: PhotosInteractionController;
     private playgroundBars!: PlaygroundBarsController;
     private playgroundHover!: PlaygroundHoverController;
+    private worksMobilePreview!: WorksMobilePreviewController;
 
     constructor() {
         const container = document.getElementById('webgl-container');
@@ -122,6 +124,11 @@ export class WebGLSceneController {
             isPC: () => this.isPC,
         });
 
+        this.worksMobilePreview = new WorksMobilePreviewController({
+            plateContent: this.plateContent,
+            getMovieCount: () => this.movies.length,
+        });
+
         this.scroll = new WebGLScrollController({
             getTheatreSheet: () => this.theatre.getSheet(),
             getSequenceLength: () => this.theatre.getSequenceLength(),
@@ -136,6 +143,12 @@ export class WebGLSceneController {
             },
             onPlaygroundLeave: () => {
                 this.playgroundHover?.reset();
+            },
+            onAboutEnter: () => {
+                this.worksMobilePreview.stop();
+            },
+            onAboutLeaveBack: () => {
+                if (!this.isPC) this.worksMobilePreview.start();
             },
         });
 
@@ -256,6 +269,11 @@ export class WebGLSceneController {
                 this.defaultCameraZ = v ? 5 : 18;
                 this.defaultCameraX = 0;
                 this.defaultCameraY = 0;
+                if (v) {
+                    this.worksMobilePreview.stop();
+                } else if (this.scroll.getActiveSection() === 'works') {
+                    this.worksMobilePreview.start();
+                }
             },
         });
 
@@ -342,6 +360,7 @@ export class WebGLSceneController {
 
         this.scroll.setActiveSection('works');
         this.scroll.attach();
+        if (!this.isPC) this.worksMobilePreview.start();
 
         window.addEventListener('resize', () => this.context.resize());
 

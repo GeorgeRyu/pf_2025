@@ -13,6 +13,7 @@ window.PFApp = function() {
         isColorThemeMenuOpen: false,
         isMenuOpen: false,
         isPhotoActive: false,
+        isScrollCueTop: false,
 
         // 初期化時にlenisの参照を取得
         initLenis() {
@@ -27,6 +28,29 @@ window.PFApp = function() {
             });
         },
 
+        scrollToY(top) {
+            if (window.app && window.app.lenisSmoothScroll) {
+                window.lenis = window.app.lenisSmoothScroll.lenis;
+                window.lenis.scrollTo(top, {
+                    duration: 3.5,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                    offset: 0,
+                    lock: true,
+                });
+                window.app?.scrollSnap?.suppress(3.5);
+            } else {
+                window.scrollTo({
+                    top,
+                    behavior: 'smooth',
+                });
+            }
+        },
+
+        onFooterScrollCue() {
+            if (!this.isScrollCueTop) return;
+            this.scrollToY(0);
+        },
+
         // lenisの制御メソッド
         controlLenis() {
             if (window.lenis && typeof window.lenis.stop === 'function') {
@@ -39,34 +63,14 @@ window.PFApp = function() {
         },
 
         anchorLink(target, isPcHeader = false) {
-            const distanceHeight = getAnchorScrollTop(target);
-
             !isPcHeader && (this.isMenuOpen = !this.isMenuOpen);
-            
-            if (window.app && window.app.lenisSmoothScroll) {
+
+            if (window.app?.lenisSmoothScroll) {
                 window.lenis = window.app.lenisSmoothScroll.lenis;
-
-                if( !isPcHeader ) {
-                    window.lenis.start();
-                }
-
-                window.lenis.scrollTo(
-                    distanceHeight,  // 数値として渡す
-                    {
-                        duration: 3.5,
-                        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // easeOutExpo
-                        offset: 0,
-                        lock: true, // モバイルでタッチ入力による中断を防ぐ（途中停止で文字が消える対策）
-                    }
-                );
-                window.app?.scrollSnap?.suppress(3.5);
-            } else {
-                // フォールバック: 通常のスクロール
-                window.scrollTo({
-                    top: distanceHeight,
-                    behavior: 'smooth'
-                });
+                if (!isPcHeader) window.lenis.start();
             }
+
+            this.scrollToY(getAnchorScrollTop(target));
         }
     }
 }

@@ -73,30 +73,44 @@
     --text-f-48-52: clamp(4.8rem, 0.447vw + 4.341rem, 5.2rem);
 }
 
-/* page scrollbar */
-html,
-body {
-    scrollbar-color: var(--color-white01) transparent; /* Firefox */
-    scrollbar-width: thin; /* Firefox */
+/* page / project-modal scrollbar */
+:root {
+    --scrollbar-thumb: var(--c-accent);
+    --scrollbar-track: transparent;
 }
+
+html,
+body,
+[data-name="modal-container"] article {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
+}
+
 html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+body::-webkit-scrollbar,
+[data-name="modal-container"] article::-webkit-scrollbar {
     width: 2px;
 }
+
 html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track {
-    background: transparent;
+body::-webkit-scrollbar-track,
+[data-name="modal-container"] article::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
 }
+
 html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb {
-    background: var(--color-white01);
+body::-webkit-scrollbar-thumb,
+[data-name="modal-container"] article::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
     border-radius: 0;
 }
+
 /* Alpine.js 初期化前にx-show要素が一瞬表示されるのを防ぐ */
 [x-cloak] { display: none !important; }
 
 /* iOS: fixed overlay 内で article を確実にスクロールさせる */
 [data-name="modal-container"] article {
+    --scrollbar-thumb: var(--c-base);
     overflow-y: auto;                 /* 念のため明示 */
     -webkit-overflow-scrolling: touch;/* iOSで重要 */
     touch-action: pan-y;              /* 効く環境だけ補助 */

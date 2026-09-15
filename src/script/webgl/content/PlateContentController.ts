@@ -121,6 +121,7 @@ export class PlateContentController {
         uniforms.progress.value = 0.0;
         uniforms.fadeOutProgress.value = 0.0;
         uniforms.imageMode.value = next.kind === 'image' ? 1.0 : 0.0;
+        uniforms.imageFromPrev.value = next.kind === 'image' && prevContent ? 1.0 : 0.0;
         uniforms.staticNoiseMode.value = 0.0;
 
         const progressObj = { value: 0.0 };
@@ -201,6 +202,7 @@ export class PlateContentController {
                     uniforms.fadeOutProgress.value = 0.0;
                     uniforms.useTexture.value = 0.0;
                     uniforms.imageMode.value = 0.0;
+                    uniforms.imageFromPrev.value = 0.0;
                     uniforms.staticNoiseMode.value = 0.0;
                     this.transitionTween = null;
                     this.isClearing = false;
@@ -210,6 +212,7 @@ export class PlateContentController {
             uniforms.useTexture.value = 0.0;
             uniforms.fadeOutProgress.value = 0.0;
             uniforms.imageMode.value = 0.0;
+            uniforms.imageFromPrev.value = 0.0;
             uniforms.staticNoiseMode.value = 0.0;
             this.currentContent = null;
             this.isClearing = false;
@@ -329,6 +332,7 @@ export class PlateContentController {
         uniforms.progress.value = 0.0;
         uniforms.fadeOutProgress.value = 0.0;
         uniforms.imageMode.value = 0.0;
+        uniforms.imageFromPrev.value = 0.0;
         uniforms.staticNoiseMode.value = 1.0;
 
         const progressObj = { value: 0.0 };

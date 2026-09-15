@@ -66,6 +66,7 @@ function createWorksPlateMesh(aboutConfig: AboutImageConfig): {
             uvScaleB: { value: new THREE.Vector2(1, 1) },
             uvOffsetB: { value: new THREE.Vector2(0, 0) },
             imageMode: { value: 0.0 },
+            imageFromPrev: { value: 0.0 },
             imageMouseUv: { value: new THREE.Vector2(0.5, 0.5) },
             imageLensRadius: { value: aboutConfig.lensRadius },
             imageLensSoftness: { value: aboutConfig.lensSoftness },

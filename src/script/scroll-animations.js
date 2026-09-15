@@ -110,15 +110,21 @@ export class ScrollAnimations {
                 if (index === 4) {
                     enterFunc = () => {
                         this.setActivePcNav('');
+                        this.setScrollCueTop(true);
+                        this.scrambleFooterCue('top');
                         tlShowTxt.restart();
                         mm.add('(max-width: 1023px)', () => tlShowTxtSpTitle.restart());
                     };
                     enterBackFunc = () => {
                         this.setActivePcNav('');
+                        this.setScrollCueTop(true);
+                        this.scrambleFooterCue('top');
                         tlShowTxt.reverse();
                     };
                     leaveBackFunc = () => {
                         this.setActivePcNav('Playground');
+                        this.setScrollCueTop(false);
+                        this.scrambleFooterCue('scroll');
                         tlHideTxt.restart();
                     };
                 } else {
@@ -245,6 +251,42 @@ export class ScrollAnimations {
     setActivePcNav(title) {
         document.querySelectorAll('[data-pc-nav]').forEach((el) => {
             el.classList.toggle('is-active', el.dataset.pcNav === title);
+        });
+    }
+
+    setScrollCueTop(active) {
+        const alpine = window.Alpine?.$data?.(document.body);
+        if (alpine) alpine.isScrollCueTop = active;
+    }
+
+    scrambleFooterCue(text) {
+        const el = document.querySelector('[data-name="scroll-cue"]');
+        if (!el) return;
+        gsap.killTweensOf(el);
+        el.textContent = el.textContent.replace(/\s+/g, '');
+        gsap.to(el, {
+            duration: 0.65,
+            scrambleText: {
+                text,
+                chars: this.chars,
+                revealDelay: 0.01,
+                speed: 0.01,
+                tweenLength: true,
+            },
+            ease: 'none',
+            onComplete: () => {
+                if (text !== 'scroll') {
+                    el.textContent = text;
+                    return;
+                }
+                el.replaceChildren(
+                    ...[...text].map((ch) => {
+                        const span = document.createElement('span');
+                        span.textContent = ch;
+                        return span;
+                    }),
+                );
+            },
         });
     }
 

@@ -88,6 +88,7 @@ export class ProjectModal {
     this.setVisible(this.modalContainer, true);
     this.hideAllArticles();
     this.setVisible(target, true);
+    this.activateArticleVideos(target);
     this.resetArticleScroll(target);
     this.focusArticle(target);
 
@@ -168,7 +169,29 @@ export class ProjectModal {
 
   hideAllArticles() {
     this.articles.forEach((a) => {
+      this.deactivateArticleVideos(a);
       this.setVisible(a, false);
+    });
+  }
+
+  /** 開いている案件だけ src を載せて再生。他はデコーダを解放する */
+  activateArticleVideos(articleEl) {
+    articleEl.querySelectorAll('video[data-src]').forEach((video) => {
+      const url = video.dataset.src;
+      if (!url) return;
+      if (video.getAttribute('src') !== url) {
+        video.src = url;
+      }
+      video.play().catch(() => {});
+    });
+  }
+
+  deactivateArticleVideos(articleEl) {
+    articleEl.querySelectorAll('video').forEach((video) => {
+      video.pause();
+      if (!video.getAttribute('src')) return;
+      video.removeAttribute('src');
+      video.load();
     });
   }
 

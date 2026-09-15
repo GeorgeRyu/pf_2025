@@ -8,9 +8,9 @@ import SoundBtn from './SoundBtn.astro';
     :inert="isPhotoActive"
 >
     <div class="grid grid-cols-1 gap-y-4 lg:col-span-1 lg:col-start-5">
-        <div class="grid grid-cols-1 gap-y-1 lg:col-span-2 lg:col-start-1 lg:grid-cols-2 lg:gap-x-4">
+        <div loading-name='text' class="grid grid-cols-1 gap-y-1 lg:col-span-2 lg:col-start-1 lg:grid-cols-2 lg:gap-x-4">
             <div class="wrap-content hidden items-center gap-x-more-20 lg:flex">
-                <button loading-name='text'>contact</button>
+                <button>contact</button>
                 <div class="links-area hidden items-center gap-x-6">
                     <a href="mailto:r.takahasii@gmail.com" class="link-inside">mail</a>
                     <a href="http://" target="_blank" rel="noopener noreferrer" class="link-inside">ig</a>
@@ -18,13 +18,64 @@ import SoundBtn from './SoundBtn.astro';
                 </div>
             </div>
         </div>
-        <div loading-name='text' id="scroll" class="lg:col-start-1">scroll</div>
+        <div
+            loading-name='text'
+            id="scroll"
+            class="scroll-txt flex leading-none lg:col-start-1"
+            :class="isScrollCueTop ? 'cursor-pointer' : ''"
+            :role="isScrollCueTop ? 'button' : undefined"
+            :tabindex="isScrollCueTop ? 0 : -1"
+            :aria-label="isScrollCueTop ? 'top' : undefined"
+            @click="onFooterScrollCue()"
+            @keydown.enter.prevent="onFooterScrollCue()"
+            @keydown.space.prevent="onFooterScrollCue()"
+        >
+            <span data-name="scroll-cue" class="flex">
+                <span>s</span>
+                <span>c</span>
+                <span>r</span>
+                <span>o</span>
+                <span>l</span>
+                <span>l</span>
+            </span>
+        </div>
     </div>
 
     <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
 </footer>
 
 <style lang="scss">
+    @keyframes scroll {
+        0% {
+            transform: translateY(-110%);
+            opacity: 1;
+        }
+        19% {
+            transform: translateY(0%);
+            opacity: 1;
+        }
+        21% {
+            transform: translateY(0%);
+            opacity: 1;
+        }
+        40% {
+            transform: translateY(100%);
+            opacity: 1;
+        }
+        50% {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        70% {
+            transform: translateY(-110%);
+            opacity: 0;
+        }
+        100% {
+            transform: translateY(-110%);
+            opacity: 1;
+        }
+    }
+
     .wrap-content {
         @media (min-width: 1024px) {
             &:hover {
@@ -32,6 +83,34 @@ import SoundBtn from './SoundBtn.astro';
                     display: flex;
                 }
             }
+        }
+    }
+
+    .scroll-txt :global([data-name="scroll-cue"] > span) {
+        position: relative;
+        overflow: hidden;
+
+        @for $i from 1 through 7 {
+            &:nth-child(#{$i}) {
+                animation-delay: $i * 0.15s;
+
+                &:before {
+                    animation-delay: $i * 0.17s;
+                }
+            }
+        }
+
+        &:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: block;
+            width: 110%;
+            height: 100%;
+            background-color: var(--color-accent);
+            transform: translateY(-110%);
+            animation: scroll 7.6s infinite;
         }
     }
 </style>
