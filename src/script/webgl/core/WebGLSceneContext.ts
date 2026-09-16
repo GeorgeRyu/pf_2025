@@ -30,17 +30,31 @@ export class WebGLSceneContext {
     private readonly container: HTMLElement | null;
     private lastFrameTime = 0;
     private rafId = 0;
+    private viewWidth = 0;
+    private viewHeight = 0;
 
     constructor(container: HTMLElement | null) {
         this.container = container;
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
         this.scene = new THREE.Scene();
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const { width, height } = this.getViewportSize();
+        this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    }
+
+    /** CSS コンテナ基準。アドレスバー変動の innerHeight には追従しない。 */
+    getViewportSize() {
+        const width = this.container?.clientWidth || window.innerWidth;
+        const height = this.container?.clientHeight || window.innerHeight;
+        return { width: Math.max(1, width), height: Math.max(1, height) };
+    }
+
+    clientToNdc(clientX: number, clientY: number, target: THREE.Vector2) {
+        const { width, height } = this.getViewportSize();
+        target.set((clientX / width) * 2 - 1, -(clientY / height) * 2 + 1);
     }
 
     mount() {
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.applySize(true);
         this.renderer.setClearColor(0x000000, 0);
         if (this.container) {
             this.container.appendChild(this.renderer.domElement);
@@ -48,10 +62,19 @@ export class WebGLSceneContext {
     }
 
     resize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.applySize(false);
+    }
+
+    private applySize(force: boolean) {
+        const { width, height } = this.getViewportSize();
+        if (!force && width === this.viewWidth && height === this.viewHeight) return;
+
+        this.viewWidth = width;
+        this.viewHeight = height;
+        this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setSize(width, height);
     }
 
     startRenderLoop(deps: WebGLRenderLoopDeps) {

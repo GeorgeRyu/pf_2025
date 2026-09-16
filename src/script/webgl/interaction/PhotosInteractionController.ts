@@ -63,8 +63,11 @@ export class PhotosInteractionController {
     }
 
     private intersectVisiblePlanes(clientX: number, clientY: number) {
-        this.pointer.x = (clientX / window.innerWidth) * 2 - 1;
-        this.pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+        const canvas = this.deps.getRenderer().domElement;
+        const width = canvas.clientWidth || window.innerWidth;
+        const height = canvas.clientHeight || window.innerHeight;
+        this.pointer.x = (clientX / width) * 2 - 1;
+        this.pointer.y = -(clientY / height) * 2 + 1;
         this.raycaster.setFromCamera(this.pointer, this.deps.getCamera());
         const worldPlanes = this.planes.filter((p) => p.visible);
         return this.raycaster.intersectObjects(worldPlanes, false);

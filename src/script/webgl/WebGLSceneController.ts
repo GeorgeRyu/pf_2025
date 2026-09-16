@@ -444,8 +444,7 @@ export class WebGLSceneController {
     };
 
     private setAboutPointerNdc(clientX: number, clientY: number) {
-        this.aboutPointerNdc.x = (clientX / window.innerWidth) * 2 - 1;
-        this.aboutPointerNdc.y = -(clientY / window.innerHeight) * 2 + 1;
+        this.context.clientToNdc(clientX, clientY, this.aboutPointerNdc);
     }
 
     private updateAboutPointerRaycast() {

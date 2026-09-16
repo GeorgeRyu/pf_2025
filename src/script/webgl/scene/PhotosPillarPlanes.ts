@@ -264,7 +264,7 @@ export class PhotosPillarPlanes {
         this._forwardStartQuat.copy(plane.quaternion);
 
         const fovRad = (camera.fov * Math.PI) / 180;
-        const aspect = window.innerWidth / window.innerHeight;
+        const aspect = camera.aspect;
         const dist = PLANE_WIDTH / (2 * Math.tan(fovRad / 2) * aspect);
 
         camera.getWorldDirection(this._lookDir);
