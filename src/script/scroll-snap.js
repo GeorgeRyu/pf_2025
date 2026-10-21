@@ -66,6 +66,10 @@ export class ScrollSnap {
 
         if (tryBind()) return;
         setTimeout(tryBind, 100);
+        window.addEventListener('lenis-recreated', () => {
+            this.lenis?.off('scroll', this.onScroll);
+            tryBind();
+        });
     }
 
     onScroll(e) {

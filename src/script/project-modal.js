@@ -16,10 +16,6 @@ export class ProjectModal {
     this.currentSlug = null;
     this.isOpen = false;
     this.isScrollLocked = false;
-    this.isIOS = this.detectIOS();
-
-    // scroll lock state (restore snapshot)
-    this.restoreScroll = null;
 
     // handlers
     this.onWheelCapture = this.onWheelCapture.bind(this);
@@ -27,14 +23,6 @@ export class ProjectModal {
     this.onTouchMoveCapture = this.onTouchMoveCapture.bind(this);
 
     this.bind();
-  }
-
-  detectIOS() {
-    // iPhone/iPad/iPod + iPadOS(=MacIntel + touch)
-    const ua = navigator.userAgent || '';
-    const isAppleMobile = /iPad|iPhone|iPod/.test(ua);
-    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-    return isAppleMobile || isIPadOS;
   }
 
   bind() {
@@ -224,36 +212,8 @@ export class ProjectModal {
 
   lockPageScroll() {
     if (this.isScrollLocked) return;
-    const html = document.documentElement;
-    const body = document.body;
-
-    // Lenis があれば停止（ページ側を動かさない）
-    if (!this.isIOS && window.lenis && typeof window.lenis.stop === 'function') {
-      window.lenis.stop();
-    }
-
-    // 位置固定でページスクロールを完全に止める（iOS含む）
-    const scrollY = window.scrollY || 0;
-    this.restoreScroll = {
-      scrollY,
-      htmlOverflow: html.style.overflow,
-      body: {
-        overflow: body.style.overflow,
-        position: body.style.position,
-        top: body.style.top,
-        left: body.style.left,
-        right: body.style.right,
-        width: body.style.width,
-      },
-    };
-
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
+    window.app?.lenisSmoothScroll?.lock();
+    window.app?.lenisSmoothScroll?.releaseVirtualScroll();
 
     // PC: wheel を確実にモーダル記事へ流す（Lenisに奪われないよう capture + preventDefault）
     window.addEventListener('wheel', this.onWheelCapture, { capture: true, passive: false });
@@ -265,34 +225,13 @@ export class ProjectModal {
 
   unlockPageScroll() {
     if (!this.isScrollLocked) return;
-    const html = document.documentElement;
-    const body = document.body;
 
     window.removeEventListener('wheel', this.onWheelCapture, true);
     window.removeEventListener('keydown', this.onKeyDownCapture, true);
     this.modalContainer.removeEventListener('touchmove', this.onTouchMoveCapture, true);
 
-    const restore = this.restoreScroll;
-    if (restore) {
-      // body styles restore
-      html.style.overflow = restore.htmlOverflow;
-      body.style.overflow = restore.body.overflow;
-      body.style.position = restore.body.position;
-      body.style.top = restore.body.top;
-      body.style.left = restore.body.left;
-      body.style.right = restore.body.right;
-      body.style.width = restore.body.width;
-
-      // スクロール位置を戻す
-      window.scrollTo(0, restore.scrollY);
-    }
-
-    // Lenis があれば再開
-    if (!this.isIOS && window.lenis && typeof window.lenis.start === 'function') {
-      window.lenis.start();
-    }
-
-    this.restoreScroll = null;
+    window.app?.lenisSmoothScroll?.restoreVirtualScroll();
+    window.app?.lenisSmoothScroll?.unlock();
     this.isScrollLocked = false;
   }
 

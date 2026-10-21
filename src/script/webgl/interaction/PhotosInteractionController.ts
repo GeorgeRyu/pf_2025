@@ -95,8 +95,10 @@ export class PhotosInteractionController {
         this.isZoomed = true;
         this.zoomedPlane = plane;
 
-        const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
-        lenis?.stop();
+        const scroller = (window as Window & {
+            app?: { lenisSmoothScroll?: { lock(): void } };
+        }).app?.lenisSmoothScroll;
+        scroller?.lock();
         setPFAppPhoto(true);
 
         const photos = this.deps.getPhotosPillarPlanes();
@@ -109,8 +111,10 @@ export class PhotosInteractionController {
         const zoomedPlane = this.zoomedPlane;
         this.isZoomed = false;
         this.zoomedPlane = null;
-        const lenis = (window as Window & { lenis?: { stop(): void; start(): void } }).lenis;
-        lenis?.start();
+        const scroller = (window as Window & {
+            app?: { lenisSmoothScroll?: { unlock(): void } };
+        }).app?.lenisSmoothScroll;
+        scroller?.unlock();
         setPFAppPhoto(false);
 
         const photos = this.deps.getPhotosPillarPlanes();

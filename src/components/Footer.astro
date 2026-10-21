@@ -3,7 +3,7 @@ import SoundBtn from './SoundBtn.astro';
 ---
 
 <footer
-    class="fixed bottom-0 left-0 grid grid-cols-2 gap-x-[8px] items-end w-full h-auto pb-s-20-60 px-s-16-60 text-accent mix-blend-differenceOld z-10 transition-opacity lg:grid-cols-6 lg:gap-x-4 lg:pb-more-40"
+    class="fixed bottom-0 left-0 grid grid-cols-2 gap-x-[8px] items-end w-full h-auto pb-s-20-60 px-s-16-60 text-accent mix-blend-differenceOld z-10 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto transition-opacity lg:grid-cols-6 lg:gap-x-4 lg:pb-more-40"
     :class="isPhotoActive ? 'opacity-0 pointer-events-none duration-[600ms]' : 'duration-[540ms]'"
     :inert="isPhotoActive"
 >
@@ -21,7 +21,7 @@ import SoundBtn from './SoundBtn.astro';
         <div
             loading-name='text'
             id="scroll"
-            class="scroll-txt flex leading-none lg:col-start-1"
+            class="scroll-txt flex leading-none pointer-events-auto lg:col-start-1"
             :class="isScrollCueTop ? 'cursor-pointer' : ''"
             :role="isScrollCueTop ? 'button' : undefined"
             :tabindex="isScrollCueTop ? 0 : -1"
@@ -41,7 +41,7 @@ import SoundBtn from './SoundBtn.astro';
         </div>
     </div>
 
-    <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="lg:hidden">menu</div>
+    <div loading-name='text' @click="isMenuOpen = !isMenuOpen" id="btn-menu" data-name="btn-menu" class="pointer-events-auto lg:hidden">menu</div>
 </footer>
 
 <style lang="scss">

@@ -5,6 +5,11 @@ import {
     getScrollDistanceUnit,
     onScrollDistanceReset,
 } from './scroll-distance.js';
+import {
+    getScrollTriggerEl,
+    getScrollTriggerScroller,
+    isSpScroll,
+} from './scroll-root.js';
 
 // GSAPプラグインを登録
 gsap.registerPlugin(ScrollTrigger, ScrambleTextPlugin);
@@ -36,6 +41,7 @@ export class ScrollAnimations {
         this.buildAreaAnimations();
         this.attachScrollTriggers();
         onScrollDistanceReset(() => this.handleScrollDistanceReset());
+        window.addEventListener('lenis-recreated', () => this.bindScrollerProxy());
     }
 
     handleScrollDistanceReset() {
@@ -49,25 +55,31 @@ export class ScrollAnimations {
             ScrollTrigger.update();
         });
 
-        setTimeout(() => {
-            if (window.app && window.app.lenisSmoothScroll) {
-                this.lenis = window.app.lenisSmoothScroll.lenis;
+        setTimeout(() => this.bindScrollerProxy(), 100);
+    }
 
-                const lenisInstance = this.lenis;
-                ScrollTrigger.scrollerProxy(document.body, {
-                    scrollTop(value) {
-                        if (arguments.length) {
-                            lenisInstance.scrollTo(value, { immediate: true });
-                        }
-                        return lenisInstance.scroll;
-                    },
-                    getBoundingClientRect() {
-                        return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
-                    },
-                    pinType: document.body.style.transform ? "transform" : "fixed"
-                });
-            }
-        }, 100);
+    bindScrollerProxy() {
+        if (window.app && window.app.lenisSmoothScroll) {
+            this.lenis = window.app.lenisSmoothScroll.lenis;
+
+            const lenisInstance = this.lenis;
+            const proxyEl = isSpScroll()
+                ? (getScrollTriggerScroller() ?? document.body)
+                : document.body;
+            ScrollTrigger.defaults({ scroller: getScrollTriggerScroller() || window });
+            ScrollTrigger.scrollerProxy(proxyEl, {
+                scrollTop(value) {
+                    if (arguments.length) {
+                        lenisInstance.scrollTo(value, { immediate: true });
+                    }
+                    return lenisInstance.scroll;
+                },
+                getBoundingClientRect() {
+                    return { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+                },
+                pinType: document.body.style.transform ? "transform" : "fixed"
+            });
+        }
     }
 
     buildAreaAnimations() {
@@ -209,7 +221,8 @@ export class ScrollAnimations {
         this.scrollTriggers.forEach((trigger) => trigger.kill());
         this.scrollTriggers = [];
 
-        const body = document.querySelector('body');
+        const triggerEl = getScrollTriggerEl();
+        const scroller = getScrollTriggerScroller();
 
         this.areaTriggerHandlers.forEach((handler) => {
             const { index, enterFunc, leaveFunc, enterBackFunc, leaveBackFunc, markers } = handler;
@@ -234,7 +247,8 @@ export class ScrollAnimations {
             }
 
             const trigger = ScrollTrigger.create({
-                trigger: body,
+                trigger: triggerEl,
+                scroller,
                 start: pStart,
                 end: pEnd,
                 onEnter: enterFunc,

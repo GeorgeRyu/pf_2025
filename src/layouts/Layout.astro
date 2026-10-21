@@ -42,6 +42,9 @@ import LockModal from '../components/LockModal.astro';
 	>
 		<LockModal />
 		<Header />
+		<div id="scroll-root">
+			<div id="scroll-content"></div>
+		</div>
 		<slot />
 		<Footer />
 	</body>
@@ -61,6 +64,7 @@ import LockModal from '../components/LockModal.astro';
 		height: 100%;
 		margin: 0;
 		padding: 0;
+		background-color: var(--c-base);
 		font-family: "JetBrains Mono", monospace;
 		font-size: var(--text-more-12);
 		letter-spacing: -7%;

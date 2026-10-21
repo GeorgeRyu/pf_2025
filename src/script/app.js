@@ -14,6 +14,7 @@ window.PFApp = function() {
         isMenuOpen: false,
         isPhotoActive: false,
         isScrollCueTop: false,
+        _overlayLocked: false,
 
         // 初期化時にlenisの参照を取得
         initLenis() {
@@ -53,12 +54,15 @@ window.PFApp = function() {
 
         // lenisの制御メソッド
         controlLenis() {
-            if (window.lenis && typeof window.lenis.stop === 'function') {
-                if (this.isMenuOpen || this.isSoundMenuOpen || this.isPhotoActive) {
-                    window.lenis.stop();
-                } else {
-                    window.lenis.start();
-                }
+            const overlayLock = this.isMenuOpen || this.isSoundMenuOpen;
+            const scroller = window.app?.lenisSmoothScroll;
+            if (!scroller) return;
+            if (overlayLock && !this._overlayLocked) {
+                this._overlayLocked = true;
+                scroller.lock();
+            } else if (!overlayLock && this._overlayLocked) {
+                this._overlayLocked = false;
+                scroller.unlock();
             }
         },
 
@@ -97,7 +101,6 @@ export class App {
         // Lenisスムーススクロールを初期化
         this.lenisSmoothScroll = new LenisSmoothScroll();
         // リロード時は必ずページトップから開始
-        window.scrollTo(0, 0);
         this.lenisSmoothScroll.scrollTo(0, { immediate: true });
         this.colorTheme = new ColorTheme();
         this.projectModal = new ProjectModal();

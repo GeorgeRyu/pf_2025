@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import type { ISheet } from '@theatre/core';
 import { getScrollDistanceUnit, getSectionZoneBoundaries, onScrollDistanceReset } from '../../scroll-distance.js';
+import { getScrollTriggerEl, getScrollTriggerScroller } from '../../scroll-root.js';
 import type { PlateContentController } from '../content/PlateContentController';
 import { ABOUT_IMAGE_KEY, type ActiveSection } from '../types';
 
@@ -65,7 +66,8 @@ export class WebGLScrollController {
     private attachScrollTriggers() {
         const distanceHeight = getScrollDistanceUnit();
         const zones = getSectionZoneBoundaries();
-        const body = document.querySelector('body');
+        const triggerEl = getScrollTriggerEl();
+        const scroller = getScrollTriggerScroller();
         const sequenceLength = this.deps.getSequenceLength();
         const theatreSheet = this.deps.getTheatreSheet();
 
@@ -78,7 +80,8 @@ export class WebGLScrollController {
 
         sections.forEach((section) => {
             const trigger = ScrollTrigger.create({
-                trigger: body,
+                trigger: triggerEl,
+                scroller,
                 start: `${section.scrollStart} top`,
                 end: `${section.scrollEnd} top`,
                 scrub: 1.5,
@@ -98,7 +101,8 @@ export class WebGLScrollController {
         const aboutZoneStart = zones.about;
         const aboutZoneEnd = zones.about + distanceHeight * 0.5;
         const aboutTrigger = ScrollTrigger.create({
-            trigger: body,
+            trigger: triggerEl,
+            scroller,
             start: `${aboutZoneStart} center`,
             end: `${aboutZoneEnd} top`,
             markers: false,
@@ -112,7 +116,8 @@ export class WebGLScrollController {
         const photosZoneStart = zones.photos;
         const photosZoneEnd = zones.playground;
         const photosTrigger = ScrollTrigger.create({
-            trigger: body,
+            trigger: triggerEl,
+            scroller,
             start: `${photosZoneStart} 10%`,
             end: `${photosZoneEnd} top`,
             markers: false,
@@ -126,7 +131,8 @@ export class WebGLScrollController {
         const playgroundZoneStart = zones.playground;
         const playgroundZoneEnd = zones.thx;
         const playgroundTrigger = ScrollTrigger.create({
-            trigger: body,
+            trigger: triggerEl,
+            scroller,
             start: `${playgroundZoneStart} top`,
             end: `${playgroundZoneEnd} top`,
             markers: false,

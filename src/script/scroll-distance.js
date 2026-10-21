@@ -71,8 +71,10 @@ export function initScrollDistanceResize() {
         resizeTimer = setTimeout(() => {
             if (window.innerWidth === fixedInnerWidth) return;
 
+            window.app?.lenisSmoothScroll?.recreateIfNeeded();
+
             const lenis = window.lenis ?? window.app?.lenisSmoothScroll?.lenis;
-            const scrollY = lenis?.scroll ?? window.scrollY ?? 0;
+            const scrollY = lenis?.scroll ?? 0;
             const { oldUnit, newUnit } = resetScrollDistance();
             const ratio = oldUnit > 0 ? newUnit / oldUnit : 1;
 
@@ -82,8 +84,6 @@ export function initScrollDistanceResize() {
             window.scrollSnap?.suppress(0.2);
             if (lenis) {
                 lenis.scrollTo(nextScroll, { immediate: true });
-            } else {
-                window.scrollTo(0, nextScroll);
             }
         }, 150);
     });
