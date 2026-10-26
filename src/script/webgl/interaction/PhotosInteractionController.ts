@@ -73,7 +73,14 @@ export class PhotosInteractionController {
         return this.raycaster.intersectObjects(worldPlanes, false);
     }
 
+    get isZoomedActive() {
+        return this.isZoomed;
+    }
+
     private onClick = (e: MouseEvent) => {
+        if (e.target instanceof Element && e.target.closest('.js-view-other-photos')) return;
+        if (this.deps.getPhotosPillarPlanes()?.isCrossfading) return;
+
         if (this.isZoomed) {
             this.zoomOut();
             return;

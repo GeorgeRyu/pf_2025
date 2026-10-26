@@ -1,8 +1,14 @@
 ---
+import { readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { getProjects } from '../lib/projects.js';
 import WebGLScene from './webgl/WebGLScene.astro';
 
 const projects = await getProjects();
+const photosDir = fileURLToPath(new URL('../../public/images/photos', import.meta.url));
+const photos = (await readdir(photosDir))
+	.filter((name) => name.endsWith('.avif'))
+	.map((name) => `/images/photos/${name}`);
 
 const navItems = [
 	{
@@ -50,15 +56,7 @@ const playgrounds = [
             '/movies/playground/black-electric-fan.mp4',
             '/movies/playground/circle-pictures.mp4',
         ]}
-        photos={[
-            '/images/photos/photos-1.JPG',
-            '/images/photos/photos-2.JPG',
-            '/images/photos/photos-3.JPG',
-            '/images/photos/photos-4.JPG',
-            '/images/photos/photos-5.JPG',
-            '/images/photos/photos-6.JPG',
-            '/images/photos/photos-7.JPG',
-        ]}
+        photos={photos}
     />
 
 	<div
@@ -120,9 +118,10 @@ const playgrounds = [
 			</div>
 
 			{ /* PHOTOS AREA */ }
-			<div data-name="photos-area" class="absolute top-0 left-0 w-full h-auto hidden grid-cols-4 gap-y-[0.8em] lg:grid-cols-6">
+			<div data-name="photos-area" class="absolute top-0 left-0 gird w-full h-auto hidden grid-cols-4 gap-x-2 gap-y-[0.8em] lg:grid-cols-6">
 				<p data-name="kinetic-txt" class="col-span-2 col-start-3 lg:col-start-5 lg:col-span-2 lg:mt-24">One of my hobbies is photography, and I use a FUJIFILM X-E4.</p>
 				<p data-name="kinetic-txt" class="font-jp col-span-2 col-start-3 lg:col-start-5 lg:col-span-1">ふと、なんとなく良いなと思う瞬間を撮る写真が好きです。相棒はFUJIFILM X-E4</p>
+				<button data-name="kinetic-txt" class="js-view-other-photos link-inside block mt-more-4 leading-snug text-left col-span-2 col-start-3 lg:col-start-5 lg:col-span-1">view other photos</button>
 			</div>
 
 			{ /* PLAYGROUND AREA */ }

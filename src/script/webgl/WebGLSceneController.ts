@@ -25,6 +25,15 @@ import {
 
 export type { ActiveSection, PlateContent, AboutImageConfig } from './types';
 
+function pickRandom<T>(items: T[], count: number): T[] {
+    const pool = items.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, count);
+}
+
 export class WebGLSceneController {
     private context: WebGLSceneContext;
     private isDebug: boolean;
@@ -36,6 +45,8 @@ export class WebGLSceneController {
     private movies: string[] = [];
     private playgroundMovies: string[] = [];
     private photos: string[] = [];
+    private currentPhotoUrls: string[] = [];
+    private cyclingPhotos = false;
     private plateContent!: PlateContentController;
     private scroll!: WebGLScrollController;
     private theatre!: TheatreController;
@@ -288,10 +299,12 @@ export class WebGLSceneController {
             console.warn('⚠️ Failed to load about image:', err);
         });
 
-        const photosPromise = this.photos.length > 0
+        const photoUrls = pickRandom(this.photos, this.rectangles.length);
+        this.currentPhotoUrls = photoUrls;
+        const photosPromise = photoUrls.length > 0
             ? this.photosPillarPlanes.loadAndAttach({
                 rectangles: this.rectangles,
-                photoUrls: this.photos,
+                photoUrls,
             }).catch((err) => {
                 console.warn('⚠️ Failed to load photos:', err);
             })
@@ -357,6 +370,7 @@ export class WebGLSceneController {
 
         // photos ロード完了後にテーマ色を反映（ロード前に applyTheme が走っているため再実行）
         this.applyTheme();
+        this.attachViewOtherPhotos();
 
         this.scroll.setActiveSection('works');
         this.scroll.attach();
@@ -400,6 +414,35 @@ export class WebGLSceneController {
 
     private attachTheme() {
         window.addEventListener('pf:color-theme-change', () => this.applyTheme());
+    }
+
+    private attachViewOtherPhotos() {
+        const btn = document.querySelector('.js-view-other-photos');
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.cyclePhotos();
+        });
+    }
+
+    private async cyclePhotos() {
+        if (this.cyclingPhotos || this.photosInteraction.isZoomedActive) return;
+        if (this.photosPillarPlanes.isCrossfading) return;
+
+        const shown = new Set(this.currentPhotoUrls);
+        const pool = this.photos.filter((url) => !shown.has(url));
+        const next = pickRandom(pool, this.rectangles.length);
+        if (next.length === 0) return;
+
+        this.cyclingPhotos = true;
+        try {
+            await this.photosPillarPlanes.crossfadeTo(next);
+            this.currentPhotoUrls = next;
+            this.applyTheme();
+        } finally {
+            this.cyclingPhotos = false;
+        }
     }
 
     private updateAboutLens() {

@@ -79,6 +79,7 @@ export class PhotosPillarPlanes {
     private duotoneTweens: Map<THREE.Mesh, gsap.core.Tween> = new Map();
     private activePlane: THREE.Mesh | null = null;
     private pillarFading = false;
+    isCrossfading = false;
     private readonly _recede = { z: 0 };
     private _otherRestWorld: THREE.Vector3[] = [];
     private _otherRestLocal: THREE.Vector3[] = [];
@@ -147,6 +148,84 @@ export class PhotosPillarPlanes {
 
         await Promise.all(promises);
         this.updateTransforms();
+    }
+
+    /** 今のプレーンをフェードアウトし、テクスチャを差し替えてフェードイン。 */
+    async crossfadeTo(urls: string[]): Promise<void> {
+        if (this.planes.length === 0 || urls.length === 0) return;
+        this.isCrossfading = true;
+        this.killOthersTween();
+        this.killForwardTween();
+        this.activePlane = null;
+        this.pillarFading = false;
+        this.restoreOtherRest();
+        this.setRacFadeMaterials(false);
+
+        try {
+            await this.tweenOpacity(0, 0.6, 'power2.in');
+            await this.applyMaps(urls);
+            this.planes.forEach((p) => {
+                p.visible = true;
+                p.scale.set(1, 1, 1);
+                const u = (p.material as THREE.ShaderMaterial).uniforms;
+                u.duotoneMix.value = 1;
+            });
+            await this.tweenOpacity(1, 0.8, 'power2.out', 0.08);
+        } finally {
+            this.isCrossfading = false;
+        }
+    }
+
+    private applyMaps(urls: string[]): Promise<void> {
+        const loader = new THREE.TextureLoader();
+        const jobs = this.planes.map((plane, i) => {
+            const url = urls[i % urls.length];
+            return new Promise<void>((resolve) => {
+                loader.load(
+                    url,
+                    (texture) => {
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        texture.wrapS = THREE.ClampToEdgeWrapping;
+                        texture.wrapT = THREE.ClampToEdgeWrapping;
+                        const { scale, offset } = computeCoverUV(texture);
+                        const u = (plane.material as THREE.ShaderMaterial).uniforms;
+                        const prev = u.map.value as THREE.Texture | null;
+                        u.map.value = texture;
+                        (u.uvScale.value as THREE.Vector2).copy(scale);
+                        (u.uvOffset.value as THREE.Vector2).copy(offset);
+                        prev?.dispose();
+                        plane.userData.photoIndex = i % urls.length;
+                        resolve();
+                    },
+                    undefined,
+                    () => resolve(),
+                );
+            });
+        });
+        return Promise.all(jobs).then(() => undefined);
+    }
+
+    private tweenOpacity(
+        value: number,
+        duration: number,
+        ease: string,
+        stagger = 0,
+    ): Promise<void> {
+        return new Promise((resolve) => {
+            if (this.fadeTween) this.fadeTween.kill();
+            const targets = this.planes.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity);
+            if (targets.length === 0) {
+                resolve();
+                return;
+            }
+            this.fadeTween = gsap.to(targets, {
+                value,
+                duration,
+                ease,
+                stagger,
+                onComplete: () => resolve(),
+            });
+        });
     }
 
     /** テーマ変更時・ロード完了時に呼ぶ */
