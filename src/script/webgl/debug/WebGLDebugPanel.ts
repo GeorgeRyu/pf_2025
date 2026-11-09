@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import Stats from 'stats.js';
 import { GUI } from 'lil-gui';
 import type { AboutImageConfig } from '../types';
+import type { PhotosZoomConfig } from '../scene/PhotosPillarPlanes';
 
 export type WebGLDebugDeps = {
     getGroupRectangles: () => THREE.Group;
@@ -9,6 +10,7 @@ export type WebGLDebugDeps = {
     getWorksPlate: () => THREE.Mesh;
     getAboutImageConfig?: () => AboutImageConfig;
     onAboutImageConfigChange?: (partial: Partial<AboutImageConfig>) => void;
+    getPhotosZoomConfig?: () => PhotosZoomConfig;
 };
 
 /**
@@ -56,6 +58,18 @@ export class WebGLDebugPanel {
         worksPlateGroup.add(worksPlate.position, 'z', -50, 50).name('Works Plate Pos Z');
 
         this.setupAboutLensFolders(deps);
+        this.setupPhotosZoomFolder(deps);
+    }
+
+    /** Photos ズームの対角遅れと秒数。?debug=lil で調整する */
+    private setupPhotosZoomFolder(deps: WebGLDebugDeps) {
+        const zoom = deps.getPhotosZoomConfig?.();
+        if (!zoom) return;
+
+        const folder = this.gui.addFolder('Photos Zoom');
+        folder.add(zoom, 'cornerDelay', 0, 0.7, 0.01).name('Corner Delay');
+        folder.add(zoom, 'zoomInDuration', 0.1, 2, 0.02).name('In Duration');
+        folder.add(zoom, 'zoomOutDuration', 0.1, 2, 0.02).name('Out Duration');
     }
 
     /** About 円形レンズのパラメータ。?debug=lil で調整する */

@@ -7,8 +7,13 @@ const PLANE_WIDTH = 2;
 const PILLAR_DEPTH = 1.1256;         // BoxGeometry の z 深さ = +Y 面の高さ方向
 const PILLAR_TOP_LOCAL_Y = 35 / 2;  // +Y 面: BoxGeometry height=35 の半分
 const WORLD_FRONT_OFFSET = 0.01;    // z-fighting 防止（world 単位）
-const ZOOM_IN_DURATION = 0.6;
-const ZOOM_OUT_DURATION = 0.54;
+const PLANE_SEGMENTS = 16;
+
+export type PhotosZoomConfig = {
+    cornerDelay: number;
+    zoomInDuration: number;
+    zoomOutDuration: number;
+};
 const RECEDE_DISTANCE_SP = 0.5;
 const RECEDE_DISTANCE_PC = 0.25;
 
@@ -48,8 +53,16 @@ function createPhotoMaterial(
             uvOffset: { value: uvOffset.clone() },
             duotoneLight: { value: new THREE.Color(1, 1, 1) },
             duotoneDark: { value: new THREE.Color(0, 0, 0) },
+            backColor: { value: new THREE.Color(0, 0, 0) },
             duotoneMix: { value: 1.0 },
             opacity: { value: 0.0 },
+            uPlateAlpha: { value: 1.0 },
+            uZoomActive: { value: 0 },
+            uZoomT: { value: 0 },
+            uZoomOut: { value: 0 },
+            uMaxDelay: { value: 0.08 },
+            uStartMatrix: { value: new THREE.Matrix4() },
+            uEndMatrix: { value: new THREE.Matrix4() },
         },
         vertexShader: photoVertexShader,
         fragmentShader: photoFragmentShader,
@@ -72,13 +85,20 @@ export type PhotosPillarPlanesDeps = {
 export class PhotosPillarPlanes {
     readonly planes: THREE.Mesh[] = [];
     readonly group = new THREE.Group();
+    readonly zoomConfig: PhotosZoomConfig = {
+        cornerDelay: 0.08,
+        zoomInDuration: 0.76,
+        zoomOutDuration: 0.66,
+    };
     private rectangles: THREE.Mesh[] = [];
+    private renderer: THREE.WebGLRenderer | null = null;
     private fadeTween: gsap.core.Tween | null = null;
     private othersTween: gsap.core.Timeline | null = null;
     private forwardTween: gsap.core.Timeline | null = null;
     private duotoneTweens: Map<THREE.Mesh, gsap.core.Tween> = new Map();
     private activePlane: THREE.Mesh | null = null;
     private pillarFading = false;
+    photosReady = false;
     isCrossfading = false;
     private readonly _recede = { z: 0 };
     private _otherRestWorld: THREE.Vector3[] = [];
@@ -93,6 +113,7 @@ export class PhotosPillarPlanes {
     private readonly _forwardEndQuat = new THREE.Quaternion();
     private readonly _planeFace = new THREE.Vector3(0, 0, 1);
     private readonly _quatProxy = { t: 0 };
+    private readonly _zoomScale = new THREE.Vector3(1, 1, 1);
     private readonly _xRot = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(1, 0, 0), -Math.PI / 2
     );
@@ -104,10 +125,22 @@ export class PhotosPillarPlanes {
     private readonly _rectLocalQuat = new THREE.Quaternion();
     private readonly _topOffset = new THREE.Vector3();
 
+    warmup(renderer: THREE.WebGLRenderer) {
+        this.renderer = renderer;
+        this.planes.forEach((p) => this.uploadMap(
+            (p.material as THREE.ShaderMaterial).uniforms.map.value as THREE.Texture | null,
+        ));
+    }
+
+    private uploadMap(texture: THREE.Texture | null) {
+        if (!texture || !this.renderer) return;
+        this.renderer.initTexture(texture);
+    }
+
     async loadAndAttach(deps: PhotosPillarPlanesDeps): Promise<void> {
         this.rectangles = deps.rectangles;
         const loader = new THREE.TextureLoader();
-        const geometry = new THREE.PlaneGeometry(PLANE_WIDTH, PILLAR_DEPTH);
+        const geometry = new THREE.PlaneGeometry(PLANE_WIDTH, PILLAR_DEPTH, PLANE_SEGMENTS, PLANE_SEGMENTS);
 
         const promises = deps.rectangles.map((_, i) => {
             const url = deps.photoUrls[i % deps.photoUrls.length];
@@ -160,6 +193,7 @@ export class PhotosPillarPlanes {
         this.pillarFading = false;
         this.restoreOtherRest();
         this.setRacFadeMaterials(false);
+        this.planes.forEach((p) => this.resetZoomUniforms(p));
 
         try {
             await this.tweenOpacity(0, 0.6, 'power2.in');
@@ -193,6 +227,7 @@ export class PhotosPillarPlanes {
                         u.map.value = texture;
                         (u.uvScale.value as THREE.Vector2).copy(scale);
                         (u.uvOffset.value as THREE.Vector2).copy(offset);
+                        this.uploadMap(texture);
                         prev?.dispose();
                         plane.userData.photoIndex = i % urls.length;
                         resolve();
@@ -234,6 +269,7 @@ export class PhotosPillarPlanes {
             const u = (p.material as THREE.ShaderMaterial).uniforms;
             (u.duotoneLight.value as THREE.Color).copy(light);
             (u.duotoneDark.value as THREE.Color).copy(dark);
+            (u.backColor.value as THREE.Color).copy(dark);
         });
     }
 
@@ -244,7 +280,7 @@ export class PhotosPillarPlanes {
         const u = (plane.material as THREE.ShaderMaterial).uniforms;
         const tween = gsap.to(u.duotoneMix, {
             value: 0,
-            duration: ZOOM_IN_DURATION,
+            duration: this.zoomConfig.zoomInDuration,
             ease: 'power2.out',
         });
         this.duotoneTweens.set(plane, tween);
@@ -258,7 +294,7 @@ export class PhotosPillarPlanes {
         const u = (plane.material as THREE.ShaderMaterial).uniforms;
         const tween = gsap.to(u.duotoneMix, {
             value: 1,
-            duration: ZOOM_IN_DURATION,
+            duration: this.zoomConfig.zoomOutDuration,
             ease: 'power2.out',
         });
         this.duotoneTweens.set(plane, tween);
@@ -351,22 +387,40 @@ export class PhotosPillarPlanes {
         this._worldNormal.copy(this._lookDir).negate().normalize();
         this._forwardEndQuat.setFromUnitVectors(this._planeFace, this._worldNormal);
 
+        const u = (plane.material as THREE.ShaderMaterial).uniforms;
+        plane.updateMatrixWorld(true);
+        (u.uStartMatrix.value as THREE.Matrix4).copy(plane.matrixWorld);
+        (u.uEndMatrix.value as THREE.Matrix4).compose(
+            this._worldPos,
+            this._forwardEndQuat,
+            this._zoomScale,
+        );
+        u.uMaxDelay.value = this.zoomConfig.cornerDelay;
+        u.uZoomOut.value = 0;
+        u.uZoomT.value = 0;
+        u.uZoomActive.value = 1;
+
         this._quatProxy.t = 0;
         this.forwardTween = gsap.timeline();
         this.forwardTween.to(plane.position, {
             x: this._worldPos.x,
             y: this._worldPos.y,
             z: this._worldPos.z,
-            duration: ZOOM_IN_DURATION,
+            duration: this.zoomConfig.zoomInDuration,
             ease: 'power3.out',
         }, 0);
         this.forwardTween.to(this._quatProxy, {
             t: 1,
-            duration: ZOOM_IN_DURATION,
+            duration: this.zoomConfig.zoomInDuration,
             ease: 'power3.out',
             onUpdate: () => {
                 plane.quaternion.copy(this._forwardStartQuat).slerp(this._forwardEndQuat, this._quatProxy.t);
             },
+        }, 0);
+        this.forwardTween.to(u.uZoomT, {
+            value: 1,
+            duration: this.zoomConfig.zoomInDuration,
+            ease: 'none',
         }, 0);
     }
 
@@ -378,9 +432,13 @@ export class PhotosPillarPlanes {
         const plane = this.activePlane;
         this._quatProxy.t = 0;
         const fromQuat = plane.quaternion.clone();
+        const u = (plane.material as THREE.ShaderMaterial).uniforms;
+        u.uZoomOut.value = 1;
+        u.uZoomActive.value = 1;
 
         this.forwardTween = gsap.timeline({
             onComplete: () => {
+                this.resetZoomUniforms(plane);
                 this.activePlane = null;
                 this.forwardTween = null;
             },
@@ -389,16 +447,21 @@ export class PhotosPillarPlanes {
             x: this._forwardStartPos.x,
             y: this._forwardStartPos.y,
             z: this._forwardStartPos.z,
-            duration: ZOOM_OUT_DURATION,
+            duration: this.zoomConfig.zoomOutDuration,
             ease: 'power3.out',
         }, 0);
         this.forwardTween.to(this._quatProxy, {
             t: 1,
-            duration: ZOOM_OUT_DURATION,
+            duration: this.zoomConfig.zoomOutDuration,
             ease: 'power3.out',
             onUpdate: () => {
                 plane.quaternion.copy(fromQuat).slerp(this._forwardStartQuat, this._quatProxy.t);
             },
+        }, 0);
+        this.forwardTween.to(u.uZoomT, {
+            value: 0,
+            duration: this.zoomConfig.zoomOutDuration,
+            ease: 'none',
         }, 0);
     }
 
@@ -407,6 +470,7 @@ export class PhotosPillarPlanes {
         this.killOthersTween();
         this.activePlane = active;
         this.pillarFading = true;
+        this.photosReady = true;
         const activeIndex = this.planes.indexOf(active);
         this.setRacFadeMaterials(true, activeIndex);
         this.captureOtherRest();
@@ -420,15 +484,15 @@ export class PhotosPillarPlanes {
         });
         this.othersTween.to(this._recede, {
             z: window.innerWidth <= 1023 ? RECEDE_DISTANCE_SP : RECEDE_DISTANCE_PC,
-            duration: ZOOM_IN_DURATION,
+            duration: this.zoomConfig.zoomInDuration,
             ease: 'power3.out',
         }, 0);
         if (others.length > 0) {
             this.othersTween.to(
-                others.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity),
+                others.map((p) => (p.material as THREE.ShaderMaterial).uniforms.uPlateAlpha),
                 {
                     value: 0,
-                    duration: ZOOM_IN_DURATION,
+                    duration: this.zoomConfig.zoomInDuration,
                     ease: 'power3.out',
                 },
                 0,
@@ -439,7 +503,7 @@ export class PhotosPillarPlanes {
                 otherMats,
                 {
                     opacity: 0,
-                    duration: ZOOM_IN_DURATION,
+                    duration: this.zoomConfig.zoomInDuration,
                     ease: 'power3.out',
                 },
                 0,
@@ -464,24 +528,27 @@ export class PhotosPillarPlanes {
         });
         this.othersTween.to(this._recede, {
             z: 0,
-            duration: ZOOM_OUT_DURATION,
+            duration: this.zoomConfig.zoomOutDuration,
             ease: 'power3.out',
         }, 0);
-        this.othersTween.to(
-            this.planes.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity),
-            {
-                value: 1,
-                duration: ZOOM_OUT_DURATION,
-                ease: 'power2.out',
-            },
-            0,
-        );
+        const others = this.planes.filter((p) => p !== this.activePlane);
+        if (others.length > 0) {
+            this.othersTween.to(
+                others.map((p) => (p.material as THREE.ShaderMaterial).uniforms.uPlateAlpha),
+                {
+                    value: 1,
+                    duration: this.zoomConfig.zoomOutDuration,
+                    ease: 'power2.out',
+                },
+                0,
+            );
+        }
         if (otherMats.length > 0) {
             this.othersTween.to(
                 otherMats,
                 {
                     opacity: 1,
-                    duration: ZOOM_OUT_DURATION,
+                    duration: this.zoomConfig.zoomOutDuration,
                     ease: 'power2.out',
                 },
                 0,
@@ -528,6 +595,13 @@ export class PhotosPillarPlanes {
         }
     }
 
+    private resetZoomUniforms(plane: THREE.Mesh) {
+        const u = (plane.material as THREE.ShaderMaterial).uniforms;
+        u.uZoomActive.value = 0;
+        u.uZoomT.value = 0;
+        u.uZoomOut.value = 0;
+    }
+
     private killForwardTween() {
         if (this.forwardTween) {
             this.forwardTween.kill();
@@ -542,12 +616,16 @@ export class PhotosPillarPlanes {
 
         this.activePlane = null;
         this.pillarFading = false;
+        this.photosReady = false;
         this.restoreOtherRest();
         this.setRacFadeMaterials(false);
         this.planes.forEach((p) => {
             p.visible = true;
             p.scale.set(1, 1, 1);
-            (p.material as THREE.ShaderMaterial).uniforms.opacity.value = 0;
+            this.resetZoomUniforms(p);
+            const u = (p.material as THREE.ShaderMaterial).uniforms;
+            u.opacity.value = 0;
+            u.uPlateAlpha.value = 1;
         });
 
         const targets = this.planes.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity);
@@ -556,6 +634,9 @@ export class PhotosPillarPlanes {
             duration: 0.8,
             stagger: 0.08,
             ease: 'power2.out',
+            onComplete: () => {
+                this.photosReady = true;
+            },
         });
     }
 
@@ -566,9 +647,14 @@ export class PhotosPillarPlanes {
 
         this.activePlane = null;
         this.pillarFading = false;
+        this.photosReady = false;
         this.restoreOtherRest();
         this.setRacFadeMaterials(false);
-        this.planes.forEach((p) => p.scale.set(1, 1, 1));
+        this.planes.forEach((p) => {
+            p.scale.set(1, 1, 1);
+            this.resetZoomUniforms(p);
+            (p.material as THREE.ShaderMaterial).uniforms.uPlateAlpha.value = 1;
+        });
 
         const targets = this.planes.map((p) => (p.material as THREE.ShaderMaterial).uniforms.opacity);
         this.fadeTween = gsap.to(targets, {

@@ -236,7 +236,7 @@ export class WebGLSceneController {
             getMouseUvTarget: () => this.mouseUvTarget,
             getLensActiveTarget: () => this.lensActiveTarget,
             getPhotoPlanesGroup: () => this.photosPillarPlanes.group,
-            getPhotosPillarFading: () => this.photosPillarPlanes.isPillarFading(),
+            getPhotosReady: () => this.photosPillarPlanes.photosReady,
             getPlaygroundFocusedIndex: () => this.playgroundBars.getFocusedIndex(),
             onTick: (time) => {
                 this.theatre.tick(time);
@@ -368,6 +368,9 @@ export class WebGLSceneController {
         // 残り動画の完了は待たない（scroll.attach をブロックしない）
         await Promise.all([aboutImagePromise, photosPromise]);
 
+        this.photosPillarPlanes.warmup(this.context.renderer);
+        this.context.renderer.compile(this.photosPillarPlanes.group, this.camera);
+
         // photos ロード完了後にテーマ色を反映（ロード前に applyTheme が走っているため再実行）
         this.applyTheme();
         this.attachViewOtherPhotos();
@@ -385,6 +388,7 @@ export class WebGLSceneController {
                 getWorksPlate: () => this.worksPlate,
                 getAboutImageConfig: () => this.aboutImageConfig,
                 onAboutImageConfigChange: (partial) => this.setAboutImageConfig(partial),
+                getPhotosZoomConfig: () => this.photosPillarPlanes.zoomConfig,
             });
         }
     }

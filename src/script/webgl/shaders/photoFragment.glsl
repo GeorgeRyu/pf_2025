@@ -3,8 +3,10 @@ uniform vec2  uvScale;       // cover UV scale（texture.repeat 相当）
 uniform vec2  uvOffset;      // cover UV offset
 uniform vec3  duotoneLight;  // 明部（--c-base）
 uniform vec3  duotoneDark;   // 暗部（--c-accent）
+uniform vec3  backColor;     // 写真が消えているときのプレート色（--c-accent）
 uniform float duotoneMix;    // 1.0=duotone, 0.0=オリジナル
-uniform float opacity;
+uniform float opacity;       // 写真 ↔ 裏色
+uniform float uPlateAlpha;   // プレート全体（非選択のフェード用）
 
 varying vec2 vUv;
 
@@ -23,6 +25,7 @@ void main() {
     vec4 img = texture2D(map, uv);
     vec3 original = toSRGB(img.rgb);
     vec3 duotoned = applyDuotone(img.rgb);
-    vec3 col = mix(original, duotoned, duotoneMix);
-    gl_FragColor = vec4(col, img.a * opacity);
+    vec3 photo = mix(original, duotoned, duotoneMix);
+    vec3 col = mix(toSRGB(backColor), photo, opacity);
+    gl_FragColor = vec4(col, uPlateAlpha);
 }
