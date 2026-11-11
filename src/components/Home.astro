@@ -121,7 +121,7 @@ const playgrounds = [
 			<div data-name="photos-area" class="absolute top-0 left-0 gird w-full h-auto hidden grid-cols-4 gap-x-2 gap-y-[0.8em] lg:grid-cols-6">
 				<p data-name="kinetic-txt" class="col-span-2 col-start-3 lg:col-start-5 lg:col-span-2 lg:mt-24">One of my hobbies is photography, and I use a FUJIFILM X-E4.</p>
 				<p data-name="kinetic-txt" class="font-jp col-span-2 col-start-3 lg:col-start-5 lg:col-span-1">ふと、なんとなく良いなと思う瞬間を撮る写真が好きです。相棒はFUJIFILM X-E4</p>
-				<button data-name="kinetic-txt" class="js-view-other-photos link-inside block mt-more-4 leading-snug text-left col-span-2 col-start-3 lg:col-start-5 lg:col-span-1">view other photos</button>
+				<button data-name="kinetic-txt" class="js-view-other-photos link-inside block mt-more-4 leading-snug text-left col-span-2 col-start-3 underline underline-offset-2 cursor-pointer lg:col-start-5 lg:col-span-1">view other photos</button>
 			</div>
 
 			{ /* PLAYGROUND AREA */ }
@@ -152,55 +152,48 @@ const playgrounds = [
 		</div>
 	</div>
 	{ /* MODAL CONTAINER */ }
-	<div data-name="modal-container" class="hidden fixed top-0 left-0 w-full h-full z-[9999] lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*4+3rem+var(--s-20-60))]">
-		<div data-name="btn-close" class="absolute left-0 top-0 h-more-120 w-more-24 text-more-12 bg-accent z-30 flex flex-col gap-y-3 items-center justify-center lg:hidden">
+	<div data-name="modal-container" class="hidden fixed top-0 left-0 w-full h-full z-[9999] pointer-events-none">
+		<div data-name="btn-close" class="absolute left-0 bottom-0 h-[200px] w-more-24 text-more-12 bg-accent z-30 flex flex-col gap-y-3 items-center justify-center cursor-pointer pointer-events-auto lg:w-more-80 lg:h-more-24 lg:flex-row lg:gap-x-3 lg:left-auto lg:top-1/2 lg:translate-y-[-50%] lg:right-0">
 			<span class="relative w-[9px] h-[9px] block pointer-events-none">
 				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base rotate-45"></span>
 				<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base -rotate-45"></span>
 			</span>
-			<span class="text-more-12 text-base [writing-mode:vertical-lr] pointer-events-none">close</span>
+			<span class="text-more-12 text-base [writing-mode:vertical-lr] pointer-events-none lg:[writing-mode:horizontal-tb]">close</span>
 		</div>
 
-		{projects.map(project => (
-		<article data-name={project.slug} class="hidden absolute top-0 left-0 w-auto h-full ml-more-16 pl-more-12 bg-accent text-base font-extralight overflow-y-scroll lg:col-span-5 lg:col-start-2 lg:pt-more-40 lg:px-4 lg:ml-0">
-			<div data-name="btn-close" class="hidden sticky top-0 right-0 cursor-pointer w-fit ml-auto bg-accent py-0.5 text-more-12 justify-end gap-x-3 items-center lg:flex">
-				<span class="relative w-[9px] h-[9px] block">
-					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base rotate-45"></span>
-					<span class="absolute top-[4px] left-0 w-full h-[1px] bg-base -rotate-45"></span>
-				</span>
-				<span class="text-more-12 text-base">close</span>
-			</div>
-
-			<div class="lg:mt-more-20">
+		{projects.map((project, index) => (
+		<article data-name={project.slug} class="hidden absolute top-0 left-0 w-auto h-full ml-more-16 pl-more-12 bg-accent text-base font-extralight overflow-y-scroll pointer-events-auto lg:w-[calc((100vw-var(--s-20-60)*2-5rem)/6*4+3rem+var(--s-20-60))] lg:col-span-5 lg:col-start-2 lg:pt-[calc(var(--s-more-40)-2.6em)] lg:px-4 lg:ml-0">
+			<div class="">
+				<div class="sticky top-[0.5em] left-0 inline-block mt-[0.8em] pr-[0.2em] bg-accent lg:top-0">_{(index + 1).toString().padStart(2, '0')}</div>
 				<header>
 					{ project.movieMain && (
-						<div class="aspect-video bg-accent">
-							<video data-src={project.movieMain} muted loop playsinline preload="none" class="w-full h-auto"></video>
+						<div class="aspect-video bg-base/25 mt-more-4">
+							<video data-src={project.movieMain} muted loop playsinline preload="none" class="w-full h-auto object-cover"></video>
 						</div>
 					)}
 
-					<div class="grid grid-cols-1 gap-y-[1.4em] mt-more-20 lg:grid-cols-2 lg:gap-y-[3em] lg:mt-[3em]">
-						<h3 class="lg:col-span-2">{project.title}</h3>
-						<ul class="grid grid-cols-1 gap-y-[0.4em] lg:row-start-2 lg:col-span-1 lg:self-start">
-							<li class="flex items-center gap-x-3">
-								<p class="opacity-40">Role</p>
+					<div class="grid grid-cols-6 gap-y-[1.8em] mt-more-16 lg:gap-y-[2.6em] lg:mt-[3em]">
+						<h3 class="col-span-4">{project.title}</h3>
+						<ul class="grid grid-cols-1 col-span-5 col-start-2 gap-y-[0.3em] lg:row-start-2 lg:col-start-2 lg:col-span-3 lg:self-start">
+							<li class="flex items-center gap-0">
+								<p class="opacity-40">Role__</p>
 								<p>{project.role}</p>
 							</li>
 							{ project.date && (
-								<li class="flex items-center gap-x-3">
-									<p class="opacity-40">Date</p>
+								<li class="flex items-center gap-0">
+									<p class="opacity-40">Date__</p>
 									<p>{project.date}</p>
 								</li>
 							)}
 							{ project.siteClosed && (
-								<li class="flex items-center gap-x-3">
-									<p class="opacity-40">Site</p>
+								<li class="flex items-center gap-0">
+									<p class="opacity-40">Site__</p>
 									<p>Site closed</p>
 								</li>
 							)}
 							{ !project.siteClosed && project.links?.length > 0 && (
-								<li class="flex items-center gap-x-3">
-									<p class="opacity-40">Link</p>
+								<li class="flex items-center gap-0">
+									<p class="opacity-40">Link__</p>
 									<p class="flex flex-wrap gap-x-3">
 										{project.links.map((link) => (
 											<a data-name="link-view-project" class="underline" href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>
@@ -209,14 +202,14 @@ const playgrounds = [
 								</li>
 							)}
 						</ul>
-						<div class="grid grid-cols-1 gap-y-[1em] mt-more-20 lg:mt-0">
+						<div class="grid grid-cols-1 col-span-4 col-start-3 gap-y-[1em] mt-0 ml-auto lg:w-auto lg:row-start-3 lg:col-start-4 lg:col-span-4">
 							<p class="" set:html={project.descriptionEn}></p>
-							<p class="font-jp" set:html={project.description}></p>
+							<p class="font-jp " set:html={project.description}></p>
 						</div>
 					</div>
 				</header>
 
-				<div class="grid grid-cols-1 gap-y-[1em] mt-16 lg:mt-[6em] lg:gap-y-[2em]">
+				<div class="grid grid-cols-1 gap-y-more-24 mt-more-96 lg:mt-more-140 lg:gap-y-more-80">
 					{project.blocks.map((block) => (
 						<div class="bg-gray01 overflow-hidden">
 							{ block.type === 'image' ? (
@@ -227,7 +220,7 @@ const playgrounds = [
 						</div>
 					))}
 					{ project.spBlocks?.length > 0 && (
-						<div class="grid grid-cols-2 gap-x-[8px] lg:gap-x-[1em]">
+						<div class="grid grid-cols-2 gap-x-more-12 lg:gap-x-more-24">
 							{project.spBlocks.map((block) => (
 								<div class="bg-gray01 overflow-hidden">
 									{ block.type === 'image' ? (
@@ -241,7 +234,7 @@ const playgrounds = [
 					)}
 				</div>
 
-				<div class="prev-next flex justify-between items-center h-more-200 lg:mt-more-100">
+				<div class="prev-next flex justify-center items-center gap-x-more-80 h-more-200 lg:mt-more-100 lg:gap-x-more-160">
 					<a href="" class="">{'< prev'}</a>
 					<a href="" class="">{'next >'}</a>
 				</div>
