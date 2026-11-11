@@ -4898,20 +4898,7 @@
                       0
                     ],
                     "type": "bezier",
-                    "value": 4.7963472009319545
-                  },
-                  {
-                    "id": "zSpXpJrddB",
-                    "position": 9.5,
-                    "connectedRight": true,
-                    "handles": [
-                      0.5,
-                      1,
-                      0.5,
-                      0
-                    ],
-                    "type": "bezier",
-                    "value": 5
+                    "value": 4.6
                   },
                   {
                     "id": "8THJ5rVhi4",
@@ -6882,6 +6869,7 @@
   },
   "definitionVersion": "0.4.0",
   "revisionHistory": [
+    "4CWQCH2fDxRSHhOl",
     "MCxm8xW0E7C_x8Ht",
     "IMAIIl1KT5BKz8gh",
     "B7N1CirA2XWrkj6M",
